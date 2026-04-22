@@ -1,10 +1,27 @@
-# Trello Smart Importer — AI-Powered Task Importer
+# Trello Smart Importer v2 — AI-Powered Task Importer
 
-O **Trello Smart Importer** é uma aplicação desktop de alta performance projetada para automatizar a criação de fluxos de trabalho complexos no Trello. Ele utiliza Inteligência Artificial e processamento de dados estruturados para transformar descrições simples ou planilhas em quadros organizados com Sprints, tarefas detalhadas, checklists técnicos e anexos.
+O **Trello Smart Importer v2** é uma aplicação desktop de alta performance projetada para automatizar a criação de fluxos de trabalho complexos no Trello. Ele utiliza Inteligência Artificial e processamento de dados estruturados para transformar descrições simples ou planilhas em quadros organizados com Sprints, tarefas detalhadas, checklists técnicos e anexos.
+
+---
+
+## 📸 Visualização do Projeto
+
+### Tela Inicial
+![Página Inicial](src/components/assets/Inicio.png)
+
+### 📂 Galeria de Funcionalidades
+*   [Configuração de IA](src/components/assets/Config_IA.png)
+*   [Configuração do Trello](src/components/assets/config_trello.png)
+*   [Importação via IA](src/components/assets/import_IA.png)
+*   [Importação de Arquivos](src/components/assets/Import_arq.png)
+*   [Lista de Projetos](src/components/assets/lista_projetos.png)
+*   [Tutorial Passo 1](src/components/assets/tutorial01.png)
+*   [Tutorial Passo 2](src/components/assets/tutorial02.png)
 
 ---
 
 ## 🛠 O que foi feito (Progresso Atual)
+
 
 ### 1. Fundação e Infraestrutura (Fase 1)
 *   **Stack Tecnológica:** Implementação da base utilizando **Electron** (Backend Desktop), **Vite + React** (Frontend) e **JavaScript/TypeScript**.
