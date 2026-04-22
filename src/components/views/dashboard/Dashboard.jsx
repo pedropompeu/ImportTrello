@@ -1,109 +1,122 @@
 import { useAppStore } from '../../../store/store.jsx'
-import { Btn, SectionLabel, Divider } from '../../ui/index.jsx'
+import { Btn, SectionLabel } from '../../ui/index.jsx'
 
 export default function Dashboard() {
   const { state, navigate } = useAppStore()
-  const { projects, boards, aiProviders } = state
+  const { projects, aiProviders } = state
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflowY: 'auto' }}>
-      {/* Header */}
-      <div style={{ padding: '24px 30px', borderBottom: '1px solid var(--b1)', background: 'var(--s1)' }}>
-        <h1 style={{ fontSize: 20, fontWeight: 800 }}>Bem-vindo ao Trello Importer</h1>
-        <p style={{ fontSize: 13, color: 'var(--t3)', marginTop: 4 }}>
-          Sua central de automação de tarefas para o Trello.
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflowY: 'auto', background: 'var(--bg)' }}>
+      {/* Header Minimalista */}
+      <div style={{ padding: '40px 30px', textAlign: 'center' }}>
+        <h1 style={{ fontSize: 28, fontWeight: 800, color: 'var(--t1)' }}>Trello Smart Importer</h1>
+        <p style={{ fontSize: 15, color: 'var(--t3)', marginTop: 8 }}>
+          Transforme ideias e arquivos em quadros estruturados no Trello em segundos.
         </p>
       </div>
 
-      <div style={{ padding: '30px', display: 'grid', gridTemplateColumns: '1fr 340px', gap: 30 }}>
+      <div style={{ padding: '0 30px 40px', maxWidth: 900, margin: '0 auto', width: '100%' }}>
         
-        {/* Lado Esquerdo: Tutorial e Guias */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+        {/* Cards Principais */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24, marginBottom: 40 }}>
           
-          <section>
-            <SectionLabel style={{ color: 'var(--ac)' }}>🚀 Guia Rápido: Como usar</SectionLabel>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginTop: 12 }}>
-              <GuideCard 
-                icon="🤖" 
-                title="Geração com IA" 
-                desc="Descreva seu projeto em linguagem natural. A IA separará em Sprints e criará checklists técnicos automaticamente."
-              />
-              <GuideCard 
-                icon="📊" 
-                title="Importação de Planilhas" 
-                desc="Suporta Excel (XLSX) e CSV. Use colunas como 'titulo', 'sprint', 'tipo' e 'checkItems' (separados por vírgula)."
-              />
-              <GuideCard 
-                icon="📝" 
-                title="Projeto Manual" 
-                desc="Crie um rascunho em branco e adicione cada card manualmente antes de subir para o Trello."
-              />
-              <GuideCard 
-                icon="⚡" 
-                title="Envio Sequencial" 
-                desc="As tarefas são enviadas uma a uma para evitar bloqueios da API, garantindo que checklists e anexos subam corretamente."
-              />
-            </div>
+          <ActionCard 
+            icon="📖"
+            title="Aprenda a usar a plataforma"
+            desc="Veja o tutorial completo com o passo a passo de todas as funcionalidades e como configurar suas APIs."
+            label="Ver Tutorial"
+            onClick={() => navigate('tutorial')}
+            color="var(--ac)"
+          />
+
+          <ActionCard 
+            icon="🚀"
+            title="Comece a usar agora"
+            desc="Vá direto para as configurações para conectar sua conta e iniciar sua primeira importação."
+            label="Ir para Configurações"
+            onClick={() => navigate('settings')}
+            color="#10b981" // Um verde suave para 'começar'
+          />
+
+        </div>
+
+        {/* Resumo Rápido */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 300px', gap: 24 }}>
+          
+          <section style={{ background: 'var(--s1)', padding: 24, borderRadius: 'var(--r)', border: '1px solid var(--b1)' }}>
+            <SectionLabel>📂 Projetos Recentes</SectionLabel>
+            {projects.length > 0 ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginTop: 16 }}>
+                {projects.slice(0, 3).map(p => (
+                  <div key={p.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 14px', background: 'var(--s2)', borderRadius: 8, border: '1px solid var(--b1)' }}>
+                    <span style={{ fontSize: 14, fontWeight: 600 }}>{p.name}</span>
+                    <Btn variant="ghost" onClick={() => navigate('preview', p.id)}>Abrir</Btn>
+                  </div>
+                ))}
+                <Btn variant="subtle" onClick={() => navigate('projects')} style={{ marginTop: 8 }}>Ver todos os projetos</Btn>
+              </div>
+            ) : (
+              <p style={{ fontSize: 13, color: 'var(--t3)', marginTop: 16 }}>Você ainda não criou nenhum projeto.</p>
+            )}
           </section>
 
-          <section style={{ background: 'var(--s2)', padding: '20px', borderRadius: 'var(--r)', border: '1px solid var(--b1)' }}>
-            <SectionLabel>📄 Formatos de Documentos</SectionLabel>
-            <div style={{ fontSize: 13, color: 'var(--t2)', lineHeight: 1.6 }}>
-              <p>O importador lê seus arquivos da seguinte forma:</p>
-              <ul style={{ marginLeft: 20, marginTop: 10 }}>
-                <li><strong>Excel/CSV:</strong> Deve conter uma linha de cabeçalho. O sistema mapeia termos próximos (ex: 'task' vira 'titulo').</li>
-                <li><strong>JSON:</strong> Segue a estrutura <code>{"{ sprints: [{ tasks: [...] }] }"}</code>.</li>
-                <li><strong>Checklists:</strong> Em planilhas, separe os itens por <code>|</code> ou vírgula na coluna 'checklist'.</li>
-              </ul>
+          <section style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+            <div style={{ background: 'var(--s1)', padding: 24, borderRadius: 'var(--r)', border: '1px solid var(--b1)' }}>
+              <SectionLabel>⚙️ Status das APIs</SectionLabel>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 16 }}>
+                <StatusItem label="Trello" active={!!state.settings?.trello_token} />
+                <StatusItem label="IA (Gemini/OpenAI)" active={aiProviders.some(p => p.is_active)} />
+              </div>
             </div>
           </section>
 
         </div>
-
-        {/* Lado Direito: Atalhos e Stats */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-          
-          <div style={{ background: 'var(--ac-bg)', padding: '20px', borderRadius: 'var(--r)', border: '1px solid var(--ac)' }}>
-            <h3 style={{ fontSize: 14, fontWeight: 700, color: 'var(--ac2)' }}>Atalhos Rápidos</h3>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 14 }}>
-              <Btn onClick={() => navigate('importer')} style={{ width: '100%', justifyContent: 'flex-start' }}>✦ Nova Importação IA</Btn>
-              <Btn variant="subtle" onClick={() => navigate('projects')} style={{ width: '100%', justifyContent: 'flex-start' }}>📂 Ver Meus Projetos</Btn>
-              <Btn variant="ghost" onClick={() => navigate('settings')} style={{ width: '100%', justifyContent: 'flex-start' }}>⚙️ Configurar APIs</Btn>
-            </div>
-          </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-            <StatSmall label="Projetos" value={projects.length} />
-            <StatSmall label="Boards" value={boards.length} />
-          </div>
-
-          {!aiProviders.some(p => p.is_active) && (
-            <div style={{ padding: 16, background: 'var(--red-bg)', border: '1px solid var(--red)', borderRadius: 'var(--r)', fontSize: 12, color: 'var(--red)' }}>
-              <strong>⚠ IA Desativada:</strong> Você precisa configurar uma API Key (Gemini ou OpenAI) para usar o gerador.
-            </div>
-          )}
-        </div>
-
       </div>
     </div>
   )
 }
 
-function GuideCard({ icon, title, desc }) {
+function ActionCard({ icon, title, desc, label, onClick, color }) {
   return (
-    <div style={{ padding: 16, background: 'var(--s1)', border: '1px solid var(--b1)', borderRadius: 'var(--r)' }}>
-      <div style={{ fontSize: 24, marginBottom: 10 }}>{icon}</div>
-      <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--t1)', marginBottom: 6 }}>{title}</div>
-      <div style={{ fontSize: 12, color: 'var(--t3)', lineHeight: 1.5 }}>{desc}</div>
+    <div 
+      onClick={onClick}
+      style={{ 
+        padding: 30, 
+        background: 'var(--s1)', 
+        border: '2px solid var(--b1)', 
+        borderRadius: 16, 
+        cursor: 'pointer',
+        transition: 'all 0.2s ease',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        textAlign: 'center',
+        gap: 16,
+        boxShadow: '0 4px 12px rgba(0,0,0,0.05)'
+      }}
+      onMouseEnter={(e) => {
+        e.currentTarget.style.borderColor = color
+        e.currentTarget.style.transform = 'translateY(-4px)'
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.borderColor = 'var(--b1)'
+        e.currentTarget.style.transform = 'translateY(0)'
+      }}
+    >
+      <div style={{ fontSize: 40 }}>{icon}</div>
+      <h3 style={{ fontSize: 18, fontWeight: 800 }}>{title}</h3>
+      <p style={{ fontSize: 13, color: 'var(--t3)', lineHeight: 1.5 }}>{desc}</p>
+      <Btn style={{ background: color, color: '#fff', border: 'none', padding: '10px 20px', marginTop: 8 }}>{label}</Btn>
     </div>
   )
 }
 
-function StatSmall({ label, value }) {
+function StatusItem({ label, active }) {
   return (
-    <div style={{ padding: '12px', background: 'var(--s2)', border: '1px solid var(--b1)', borderRadius: 'var(--r)', textAlign: 'center' }}>
-      <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--ac2)' }}>{value}</div>
-      <div style={{ fontSize: 10, color: 'var(--t3)', textTransform: 'uppercase', marginTop: 2 }}>{label}</div>
+    <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12 }}>
+      <div style={{ width: 8, height: 8, borderRadius: '50%', background: active ? '#10b981' : '#ef4444' }} />
+      <span style={{ color: 'var(--t2)' }}>{label}:</span>
+      <span style={{ fontWeight: 700, color: active ? '#10b981' : '#ef4444' }}>{active ? 'Conectado' : 'Pendente'}</span>
     </div>
   )
 }

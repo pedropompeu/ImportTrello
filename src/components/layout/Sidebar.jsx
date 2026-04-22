@@ -5,6 +5,7 @@ const NAV = [
   { id: 'projects',  icon: '⬡', label: 'Projetos'    },
   { id: 'importer',  icon: '⊕', label: 'Importar'    },
   { id: 'settings',  icon: '⚙', label: 'Configurações'},
+  { id: 'tutorial',  icon: '📖', label: 'Tutorial'    },
 ]
 
 export default function Sidebar() {

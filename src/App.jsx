@@ -6,6 +6,7 @@ import Projects from './components/views/projects/Projects.jsx'
 import Importer from './components/views/importer/Importer.jsx'
 import Settings from './components/views/settings/Settings.jsx'
 import Preview  from './components/views/preview/Preview.jsx'
+import Tutorial from './components/views/tutorial/Tutorial.jsx'
 
 function Router() {
   const { state } = useAppStore()
@@ -15,6 +16,7 @@ function Router() {
     importer:  <Importer />,
     settings:  <Settings />,
     preview:   <Preview />,
+    tutorial:  <Tutorial />,
   }
   return (
     <div style={{ display: 'flex', height: '100vh', overflow: 'hidden', background: 'var(--bg)' }}>
