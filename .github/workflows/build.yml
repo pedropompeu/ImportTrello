@@ -31,7 +31,7 @@ jobs:
         run: npm install --ignore-scripts
 
       - name: Rebuild better-sqlite3 para Electron
-        run: ./node_modules/.bin/electron-rebuild -f -w better-sqlite3 --version 33.0.0
+        run: ./node_modules/.bin/electron-rebuild -f -w better-sqlite3
 
       - name: Build Linux
         run: npm run build:linux
@@ -67,7 +67,7 @@ jobs:
 
       - name: Rebuild better-sqlite3 para Electron
         shell: bash
-        run: ./node_modules/.bin/electron-rebuild -f -w better-sqlite3 --version 33.0.0
+        run: ./node_modules/.bin/electron-rebuild -f -w better-sqlite3
 
       - name: Build Windows
         run: npm run build:win
@@ -99,7 +99,7 @@ jobs:
         run: npm install --ignore-scripts
 
       - name: Rebuild better-sqlite3 para Electron
-        run: ./node_modules/.bin/electron-rebuild -f -w better-sqlite3 --version 33.0.0
+        run: ./node_modules/.bin/electron-rebuild -f -w better-sqlite3
 
       - name: Build macOS
         run: npm run build:mac
@@ -142,6 +142,8 @@ jobs:
 
       - name: Criar GitHub Release e anexar assets
         uses: softprops/action-gh-release@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           files: artifacts/*
           generate_release_notes: true
