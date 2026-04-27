@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { useAppStore } from '../../../store/store.jsx'
 import { Btn, Input, Textarea, Select, SectionLabel, Divider, Spinner, EmptyState, TypeBadge } from '../../ui/index.jsx'
 
@@ -329,7 +329,14 @@ export default function Importer() {
               </div>
             </div>
 
-            <PreviewList sprints={parsed.sprints || []} />
+            {totalTasks === 0
+              ? <EmptyState icon="✏️" title="Projeto em branco"
+                  description="O projeto será criado vazio. As tasks serão adicionadas manualmente na próxima tela." />
+              : <PreviewList
+                  sprints={parsed.sprints || []}
+                  onChange={newSprints => setParsed(p => ({ ...p, sprints: newSprints }))}
+                />
+            }
           </div>
         )}
       </div>
@@ -337,54 +344,231 @@ export default function Importer() {
   )
 }
 
-// ─── Preview expandível ───────────────────────────────────────────────────────
-function PreviewList({ sprints }) {
-  const [expanded, setExpanded] = useState(new Set(sprints.map(s => s.label)))
+// ─── Preview expandível e editável ───────────────────────────────────────────
+function PreviewList({ sprints, onChange }) {
+  const [expanded,      setExpanded]      = useState(new Set(sprints.map(s => s.label)))
+  const [dropTarget,    setDropTarget]    = useState(null) // { si, ti, before }
+  const [hovTask,       setHovTask]       = useState(null) // { si, ti }
+  const [editingTask,   setEditingTask]   = useState(null) // { si, ti }
+  const [editTitle,     setEditTitle]     = useState('')
+  const [editingSprint, setEditingSprint] = useState(null) // si (index)
+  const [editSprintTit, setEditSprintTit] = useState('')
+  const dragRef = useRef(null) // { si, ti }
 
-  const toggle = (label) => setExpanded(prev => {
-    const n = new Set(prev)
-    n.has(label) ? n.delete(label) : n.add(label)
-    return n
+  const toggle = label => setExpanded(prev => {
+    const n = new Set(prev); n.has(label) ? n.delete(label) : n.add(label); return n
   })
+
+  function clearDrag() { dragRef.current = null; setDropTarget(null) }
+
+  function handleDragOverTask(e, si, ti) {
+    e.preventDefault()
+    e.stopPropagation()
+    e.dataTransfer.dropEffect = 'move'
+    const rect   = e.currentTarget.getBoundingClientRect()
+    const before = e.clientY < rect.top + rect.height / 2
+    setDropTarget({ si, ti, before })
+  }
+
+  function handleDropOnTask(e, targetSi, targetTi) {
+    e.preventDefault()
+    e.stopPropagation()
+    if (!dragRef.current) return
+    const { si: fromSi, ti: fromTi } = dragRef.current
+    const rect   = e.currentTarget.getBoundingClientRect()
+    const before = e.clientY < rect.top + rect.height / 2
+    clearDrag()
+    if (fromSi === targetSi && fromTi === targetTi) return
+
+    const next = sprints.map(s => ({ ...s, tasks: [...s.tasks] }))
+    const [moved] = next[fromSi].tasks.splice(fromTi, 1)
+
+    let insertIdx
+    if (fromSi === targetSi) {
+      const adj = fromTi < targetTi ? targetTi - 1 : targetTi
+      insertIdx  = before ? adj : adj + 1
+    } else {
+      insertIdx = before ? targetTi : targetTi + 1
+    }
+    next[targetSi].tasks.splice(insertIdx, 0, moved)
+    onChange?.(next)
+  }
+
+  function handleDropOnSprint(e, si) {
+    e.preventDefault()
+    if (!dragRef.current) return
+    const { si: fromSi, ti: fromTi } = dragRef.current
+    clearDrag()
+    const next = sprints.map(s => ({ ...s, tasks: [...s.tasks] }))
+    const [moved] = next[fromSi].tasks.splice(fromTi, 1)
+    next[si].tasks.push(moved)
+    onChange?.(next)
+  }
+
+  function saveTaskTitle(si, ti) {
+    const title = editTitle.trim()
+    setEditingTask(null)
+    if (!title) return
+    const next = sprints.map((s, i) =>
+      i !== si ? s : { ...s, tasks: s.tasks.map((t, j) => j !== ti ? t : { ...t, titulo: title }) }
+    )
+    onChange?.(next)
+  }
+
+  function saveSprintTitle(si) {
+    const title = editSprintTit.trim()
+    setEditingSprint(null)
+    if (!title) return
+    const next = sprints.map((s, i) => i !== si ? s : { ...s, titulo: title })
+    onChange?.(next)
+  }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-      {sprints.map(sprint => (
-        <div key={sprint.label} style={{ border: '1px solid var(--b1)', borderRadius: 'var(--r)', overflow: 'hidden' }}>
-          <button onClick={() => toggle(sprint.label)} style={{
-            width: '100%', padding: '10px 14px', background: 'var(--s2)',
-            display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer',
-          }}>
-            <span style={{ fontSize: 12, color: 'var(--t3)' }}>{expanded.has(sprint.label) ? '▾' : '▸'}</span>
-            <span style={{ fontSize: 11, color: 'var(--ac2)', fontFamily: 'var(--mono)', fontWeight: 600 }}>{sprint.label}</span>
-            <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--t1)' }}>{sprint.titulo}</span>
-            <span style={{ marginLeft: 'auto', fontSize: 10, color: 'var(--t3)', fontFamily: 'var(--mono)' }}>{sprint.tasks?.length} tasks</span>
-          </button>
+      {sprints.map((sprint, si) => (
+        <div
+          key={sprint.label}
+          style={{ border: '1px solid var(--b1)', borderRadius: 'var(--r)', overflow: 'hidden' }}
+          onDragOver={e => { e.preventDefault(); e.dataTransfer.dropEffect = 'move' }}
+          onDrop={e => handleDropOnSprint(e, si)}
+        >
+          {/* Sprint header */}
+          <div style={{ width: '100%', padding: '10px 14px', background: 'var(--s2)', display: 'flex', alignItems: 'center', gap: 8 }}>
+            <button
+              onClick={() => toggle(sprint.label)}
+              style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--t3)', fontSize: 12, display: 'flex', padding: 0, flexShrink: 0 }}
+            >
+              {expanded.has(sprint.label) ? '▾' : '▸'}
+            </button>
+            <span style={{ fontSize: 11, color: 'var(--ac2)', fontFamily: 'var(--mono)', fontWeight: 600, flexShrink: 0 }}>{sprint.label}</span>
 
+            {editingSprint === si ? (
+              <input
+                autoFocus
+                value={editSprintTit}
+                onChange={e => setEditSprintTit(e.target.value)}
+                onBlur={() => saveSprintTitle(si)}
+                onKeyDown={e => {
+                  if (e.key === 'Enter')  saveSprintTitle(si)
+                  if (e.key === 'Escape') setEditingSprint(null)
+                  e.stopPropagation()
+                }}
+                onClick={e => e.stopPropagation()}
+                style={{ flex: 1, fontSize: 12, fontWeight: 600, color: 'var(--t1)', background: 'var(--s3)', border: '1px solid var(--ac)', borderRadius: 4, padding: '2px 8px', outline: 'none', fontFamily: 'inherit' }}
+              />
+            ) : (
+              <span
+                onDoubleClick={() => { setEditingSprint(si); setEditSprintTit(sprint.titulo) }}
+                title="Duplo clique para renomear"
+                style={{ flex: 1, fontSize: 12, fontWeight: 600, color: 'var(--t1)', cursor: 'text' }}
+              >
+                {sprint.titulo}
+              </span>
+            )}
+
+            <span style={{ marginLeft: 'auto', fontSize: 10, color: 'var(--t3)', fontFamily: 'var(--mono)', flexShrink: 0 }}>{sprint.tasks?.length} tasks</span>
+            <button
+              onClick={() => {
+                if (!window.confirm(`Excluir a sprint "${sprint.titulo}" e todas as suas ${sprint.tasks?.length} tasks?`)) return
+                onChange?.(sprints.filter((_, i) => i !== si))
+              }}
+              title="Excluir sprint"
+              style={{ background: 'none', border: 'none', color: 'var(--t3)', cursor: 'pointer', fontSize: 13, padding: '0 2px', display: 'flex', alignItems: 'center', flexShrink: 0 }}
+            >✕</button>
+          </div>
+
+          {/* Tasks */}
           {expanded.has(sprint.label) && (
-            <div style={{ padding: '4px 8px 8px', display: 'flex', flexDirection: 'column', gap: 3 }}>
-              {(sprint.tasks || []).map((task, i) => (
-                <div key={i} style={{
-                  padding: '8px 10px', borderRadius: 'var(--r-sm)',
-                  background: 'var(--s1)', display: 'flex', alignItems: 'center', gap: 10,
-                }}>
-                  <span style={{ fontSize: 12, flex: 1, color: 'var(--t1)' }} className="truncate">{task.titulo}</span>
-                  <TypeBadge tipo={task.tipo} size="xs" />
-                  {task.checkItems?.length > 0 && (
-                    <span style={{ fontSize: 10, color: 'var(--t3)', fontFamily: 'var(--mono)', flexShrink: 0 }}>☑ {task.checkItems.length}</span>
-                  )}
-                  {task.due_date && (
-                    <span style={{ fontSize: 10, color: 'var(--yellow)', fontFamily: 'var(--mono)', flexShrink: 0 }}>📅 {task.due_date}</span>
-                  )}
-                  {task.links?.length > 0 && (
-                    <span style={{ fontSize: 10, color: 'var(--blue)', fontFamily: 'var(--mono)', flexShrink: 0 }}>🔗 {task.links.length}</span>
-                  )}
-                </div>
-              ))}
+            <div style={{ padding: '4px 8px 8px', display: 'flex', flexDirection: 'column' }}>
+              {(sprint.tasks || []).map((task, ti) => {
+                const isDragSrc  = dragRef.current?.si === si && dragRef.current?.ti === ti
+                const isHov      = hovTask?.si === si && hovTask?.ti === ti
+                const isEditing  = editingTask?.si === si && editingTask?.ti === ti
+                const showBefore = dropTarget?.si === si && dropTarget?.ti === ti && dropTarget?.before
+                const showAfter  = dropTarget?.si === si && dropTarget?.ti === ti && !dropTarget?.before
+
+                return (
+                  <div key={ti}>
+                    {showBefore && <DropLine />}
+                    <div
+                      draggable
+                      onDragStart={() => { dragRef.current = { si, ti } }}
+                      onDragEnd={clearDrag}
+                      onDragOver={e => handleDragOverTask(e, si, ti)}
+                      onDrop={e => handleDropOnTask(e, si, ti)}
+                      onMouseEnter={() => setHovTask({ si, ti })}
+                      onMouseLeave={() => setHovTask(null)}
+                      style={{
+                        padding: '8px 10px', borderRadius: 'var(--r-sm)', marginBottom: 3,
+                        background: 'var(--s1)', display: 'flex', alignItems: 'center', gap: 8,
+                        opacity: isDragSrc ? 0.4 : 1, transition: 'opacity .1s',
+                      }}
+                    >
+                      {/* Grip */}
+                      <span style={{ fontSize: 13, color: 'var(--t3)', cursor: 'grab', opacity: isHov ? 1 : 0, flexShrink: 0, transition: 'opacity .1s', userSelect: 'none' }}>⠿</span>
+
+                      {/* Título editável */}
+                      {isEditing ? (
+                        <input
+                          autoFocus
+                          value={editTitle}
+                          onChange={e => setEditTitle(e.target.value)}
+                          onBlur={() => saveTaskTitle(si, ti)}
+                          onKeyDown={e => {
+                            if (e.key === 'Enter')  saveTaskTitle(si, ti)
+                            if (e.key === 'Escape') setEditingTask(null)
+                            e.stopPropagation()
+                          }}
+                          onClick={e => e.stopPropagation()}
+                          style={{ flex: 1, background: 'var(--s2)', border: '1px solid var(--ac)', borderRadius: 4, color: 'var(--t1)', fontSize: 12, padding: '3px 8px', outline: 'none', fontFamily: 'inherit' }}
+                        />
+                      ) : (
+                        <span
+                          onClick={() => { setEditingTask({ si, ti }); setEditTitle(task.titulo) }}
+                          title="Clique para editar título"
+                          style={{ fontSize: 12, flex: 1, color: 'var(--t1)', cursor: 'text' }}
+                          className="truncate"
+                        >
+                          {task.titulo}
+                        </span>
+                      )}
+
+                      <TypeBadge tipo={task.tipo} size="xs" />
+                      {task.checkItems?.length > 0 && (
+                        <span style={{ fontSize: 10, color: 'var(--t3)', fontFamily: 'var(--mono)', flexShrink: 0 }}>☑ {task.checkItems.length}</span>
+                      )}
+                      {task.due_date && (
+                        <span style={{ fontSize: 10, color: 'var(--yellow)', fontFamily: 'var(--mono)', flexShrink: 0 }}>📅 {task.due_date}</span>
+                      )}
+                      {task.links?.length > 0 && (
+                        <span style={{ fontSize: 10, color: 'var(--blue)', fontFamily: 'var(--mono)', flexShrink: 0 }}>🔗 {task.links.length}</span>
+                      )}
+                      {isHov && (
+                        <button
+                          onClick={e => {
+                            e.stopPropagation()
+                            const next = sprints.map((s, i) =>
+                              i !== si ? s : { ...s, tasks: s.tasks.filter((_, j) => j !== ti) }
+                            )
+                            onChange?.(next)
+                          }}
+                          title="Remover task"
+                          style={{ background: 'none', border: 'none', color: 'var(--red)', cursor: 'pointer', fontSize: 13, padding: '0 2px', flexShrink: 0, display: 'flex', alignItems: 'center' }}
+                        >✕</button>
+                      )}
+                    </div>
+                    {showAfter && <DropLine />}
+                  </div>
+                )
+              })}
             </div>
           )}
         </div>
       ))}
     </div>
   )
+}
+
+function DropLine() {
+  return <div style={{ height: 2, background: 'var(--ac)', borderRadius: 99, margin: '2px 0', boxShadow: '0 0 6px var(--ac)' }} />
 }

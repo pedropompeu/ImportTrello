@@ -9,56 +9,52 @@ export default function Preview() {
   const { state, navigate, showToast } = useAppStore()
   const projectId = state.activeProjectId
 
-  const [project,   setProject]   = useState(null)
-  const [tasks,     setTasks]     = useState([])
-  const [selected,  setSelected]  = useState(new Set())
-  const [editing,   setEditing]   = useState(null)
-  const [importing, setImporting] = useState(false)
-  const [log,       setLog]       = useState([])
-  const [showLog,   setShowLog]   = useState(false)
-  const [collapsed, setCollapsed] = useState({})
-  const [progress,  setProgress]  = useState(0)
+  const [project,        setProject]        = useState(null)
+  const [tasks,          setTasks]          = useState([])
+  const [selected,       setSelected]       = useState(new Set())
+  const [editing,        setEditing]        = useState(null)
+  const [importing,      setImporting]      = useState(false)
+  const [log,            setLog]            = useState([])
+  const [showLog,        setShowLog]        = useState(false)
+  const [collapsed,      setCollapsed]      = useState({})
+  const [progress,       setProgress]       = useState(0)
+  const [dropIndicator,  setDropIndicator]  = useState(null)  // { sprintLabel, beforeTaskId }
+  const [dragOverSprint, setDragOverSprint] = useState(null)  // sprint label
+  const [sprintEditing,  setSprintEditing]  = useState(null)  // sprint label being renamed
 
   const logEndRef = useRef(null)
+  const dragRef   = useRef(null) // { taskId, sprintLabel }
 
-  // Carrega dados do projeto
+  // ─── Load ────────────────────────────────────────────────────────────────────
   const load = useCallback(async () => {
     if (!projectId || !window.api) return
     const res = await window.api.projects.get({ id: projectId })
     if (!res?.project) return
     setProject(res.project)
     setTasks(res.tasks || [])
-    
-    // Auto-select pending tasks
     const pendingIds = (res.tasks || []).filter(t => t.status === 'pending').map(t => t.id)
     setSelected(new Set(pendingIds))
   }, [projectId])
 
   useEffect(() => { load() }, [load])
 
-  // Scroll log to bottom
   useEffect(() => {
     if (logEndRef.current) logEndRef.current.scrollIntoView({ behavior: 'smooth' })
   }, [log])
 
-  // Progress listener
   useEffect(() => {
     if (!window.api) return
     const cleanup = window.api.import.onProgress((msg) => {
       setLog(prev => [...prev, { ...msg, timestamp: new Date().toLocaleTimeString() }])
-      
       if (msg.type === 'card_start') {
-        const idx = msg.index + 1
-        setProgress((idx / msg.total) * 100)
+        setProgress(((msg.index + 1) / msg.total) * 100)
       }
-
       if (msg.type === 'card_done' || msg.type === 'card_error') {
         setTasks(prev => prev.map(t => t.id === msg.taskId
           ? { ...t, status: msg.type === 'card_done' ? 'done' : 'error' }
           : t
         ))
       }
-      
       if (msg.type === 'finished') {
         setImporting(false)
         setProgress(100)
@@ -76,7 +72,7 @@ export default function Preview() {
   )
 
   // ─── Seleção ──────────────────────────────────────────────────────────────
-  const pending   = tasks.filter(t => t.status === 'pending')
+  const pending       = tasks.filter(t => t.status === 'pending')
   const allPendingIds = pending.map(t => t.id)
   const allSelected   = allPendingIds.length > 0 && allPendingIds.every(id => selected.has(id))
 
@@ -108,14 +104,14 @@ export default function Preview() {
 
   async function addNewTask(sprintLabel, sprintTitle) {
     const newTask = {
-      project_id: projectId,
-      titulo: 'Nova Tarefa',
-      sprint: sprintLabel || 'Geral',
+      project_id:   projectId,
+      titulo:       'Nova Tarefa',
+      sprint:       sprintLabel || 'Geral',
       sprint_title: sprintTitle || 'Geral',
-      tipo: 'Backend',
-      destino_col: 'Backlog',
-      status: 'pending',
-      position: tasks.length
+      tipo:         'Backend',
+      destino_col:  'Backlog',
+      status:       'pending',
+      position:     tasks.length,
     }
     const res = await window.api?.tasks.create(newTask)
     if (res?.ok) {
@@ -126,22 +122,137 @@ export default function Preview() {
     }
   }
 
+  // ─── Sprint rename ────────────────────────────────────────────────────────
+  async function renameSprint(label, newTitle) {
+    const title = newTitle.trim()
+    setSprintEditing(null)
+    if (!title) return
+    const affected = tasks.filter(t => t.sprint === label)
+    setTasks(prev => prev.map(t => t.sprint === label ? { ...t, sprint_title: title } : t))
+    await Promise.all(affected.map(t => window.api?.tasks.update({ id: t.id, sprint_title: title })))
+  }
+
+  // ─── Sprint delete ────────────────────────────────────────────────────────
+  async function deleteSprint(label, titulo) {
+    if (!window.confirm(`Excluir a sprint "${titulo}" e todas as suas tasks?`)) return
+    const ids = tasks.filter(t => t.sprint === label).map(t => t.id)
+    setTasks(prev => prev.filter(t => t.sprint !== label))
+    setSelected(prev => { const n = new Set(prev); ids.forEach(id => n.delete(id)); return n })
+    await Promise.all(ids.map(id => window.api?.tasks.delete({ id })))
+  }
+
   // ─── Importação ───────────────────────────────────────────────────────────
   async function startImport() {
     const taskIds = selected.size > 0 ? [...selected] : null
     if (!taskIds?.length) return showToast('info', 'Selecione pelo menos uma tarefa.')
-    
     setImporting(true)
     setLog([{ type: 'info', text: 'Iniciando importação...', timestamp: new Date().toLocaleTimeString() }])
     setShowLog(true)
     setProgress(0)
-
     const res = await window.api?.import.start({ projectId, taskIds }) || { ok: false, error: 'API indisponível' }
-    if (!res.ok) { 
+    if (!res.ok) {
       setImporting(false)
       showToast('error', res.error)
       setLog(prev => [...prev, { type: 'card_error', text: `ERRO: ${res.error}`, timestamp: new Date().toLocaleTimeString() }])
     }
+  }
+
+  // ─── Drag & Drop ──────────────────────────────────────────────────────────
+  function handleDragStart(taskId, sprintLabel) {
+    dragRef.current = { taskId, sprintLabel }
+  }
+
+  function clearDrag() {
+    dragRef.current = null
+    setDropIndicator(null)
+    setDragOverSprint(null)
+  }
+
+  // Fine-grained: called from each TaskRow's onDragOver
+  function handleDragOverTask(e, sprintLabel, taskId) {
+    e.preventDefault()
+    e.stopPropagation() // prevent sprint container's coarser handler from overriding
+    e.dataTransfer.dropEffect = 'move'
+    setDragOverSprint(sprintLabel)
+    const rect   = e.currentTarget.getBoundingClientRect()
+    const before = e.clientY < rect.top + rect.height / 2
+    setDropIndicator({ sprintLabel, beforeTaskId: before ? taskId : '__after_' + taskId })
+  }
+
+  // Coarse: called on sprint container when not over a specific task
+  function handleDragOverSprint(e, sprintLabel) {
+    e.preventDefault()
+    e.dataTransfer.dropEffect = 'move'
+    setDragOverSprint(sprintLabel)
+    // Only set to __end__ if we don't already have a task-specific indicator for this sprint
+    setDropIndicator(prev =>
+      prev?.sprintLabel === sprintLabel && prev?.beforeTaskId !== '__end__'
+        ? prev
+        : { sprintLabel, beforeTaskId: '__end__' }
+    )
+  }
+
+  async function handleDrop(e, targetSprintLabel, targetSprintTitle) {
+    e.preventDefault()
+    if (!dragRef.current) return
+    const { taskId } = dragRef.current
+    const indicator  = dropIndicator
+    clearDrag()
+    if (!taskId || !indicator) return
+
+    const dragged = tasks.find(t => t.id === taskId)
+    if (!dragged) return
+
+    // Preserve current sprint display order
+    const sprintOrder = []
+    const seenS = new Set()
+    tasks.forEach(t => {
+      const k = t.sprint || 'Geral'
+      if (!seenS.has(k)) { seenS.add(k); sprintOrder.push(k) }
+    })
+
+    const withoutDragged = tasks.filter(t => t.id !== taskId)
+
+    // Group remaining tasks by sprint
+    const byS = {}
+    sprintOrder.forEach(l => { byS[l] = [] })
+    withoutDragged.forEach(t => {
+      const k = t.sprint || 'Geral'
+      if (!byS[k]) byS[k] = []
+      byS[k].push(t)
+    })
+
+    // Find insert position within target sprint
+    const targetArr = byS[targetSprintLabel] || []
+    let insertIdx   = targetArr.length
+
+    if (indicator.beforeTaskId && indicator.beforeTaskId !== '__end__') {
+      const isAfter = indicator.beforeTaskId.startsWith('__after_')
+      const refId   = isAfter ? indicator.beforeTaskId.slice(8) : indicator.beforeTaskId
+      const idx     = targetArr.findIndex(t => t.id === refId)
+      if (idx !== -1) insertIdx = isAfter ? idx + 1 : idx
+    }
+
+    const updatedDragged = { ...dragged, sprint: targetSprintLabel, sprint_title: targetSprintTitle }
+    targetArr.splice(insertIdx, 0, updatedDragged)
+
+    // Rebuild full task list in sprint order; assign positions within target sprint
+    const newTasks = []
+    sprintOrder.forEach(label => {
+      if (label === targetSprintLabel) {
+        targetArr.forEach((t, i) => newTasks.push({ ...t, position: i }))
+      } else {
+        ;(byS[label] || []).forEach(t => newTasks.push(t))
+      }
+    })
+
+    setTasks(newTasks)
+
+    // Persist all tasks in the target sprint (positions may have shifted)
+    const toSave = newTasks.filter(t => (t.sprint || 'Geral') === targetSprintLabel)
+    await Promise.all(toSave.map(t =>
+      window.api?.tasks.update({ id: t.id, sprint: t.sprint, sprint_title: t.sprint_title, position: t.position })
+    ))
   }
 
   // ─── Sprints agrupadas ────────────────────────────────────────────────────
@@ -159,6 +270,7 @@ export default function Preview() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', background: 'var(--bg)' }}>
+
       {/* Header */}
       <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--b1)', display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0, background: 'var(--s1)' }}>
         <button onClick={() => navigate('projects')} style={{ color: 'var(--t3)', background: 'none', border: 'none', cursor: 'pointer', fontSize: 18, lineHeight: 1 }}>←</button>
@@ -168,9 +280,7 @@ export default function Preview() {
             {tasks.length} tasks · ✓{doneCount} · ○{pendingCount} {errorCount > 0 ? `· ✗${errorCount}` : ''}
           </div>
         </div>
-
         <StatusBadge status={project.status === 'done' ? 'done_proj' : project.status} />
-
         <div style={{ display: 'flex', gap: 8 }}>
           {log.length > 0 && (
             <Btn variant="subtle" size="sm" onClick={() => setShowLog(p => !p)}>
@@ -194,25 +304,12 @@ export default function Preview() {
 
       {/* Log - Terminal Style */}
       {showLog && (
-        <div style={{
-          height: 180, overflowY: 'auto', padding: '12px 20px',
-          background: '#000', borderBottom: '1px solid var(--b1)',
-          fontFamily: 'var(--mono)', fontSize: 11, flexShrink: 0,
-          color: '#aaa', boxShadow: 'inset 0 4px 12px rgba(0,0,0,.5)'
-        }}>
+        <div style={{ height: 180, overflowY: 'auto', padding: '12px 20px', background: '#000', borderBottom: '1px solid var(--b1)', fontFamily: 'var(--mono)', fontSize: 11, flexShrink: 0, color: '#aaa', boxShadow: 'inset 0 4px 12px rgba(0,0,0,.5)' }}>
           {log.map((e, i) => (
             <div key={i} style={{ marginBottom: 4, display: 'flex', gap: 10 }}>
               <span style={{ color: '#555' }}>[{e.timestamp}]</span>
-              <span style={{
-                color: e.type === 'card_done' ? '#4ade80' : 
-                       e.type === 'card_error' ? '#f87171' : 
-                       e.type === 'finished' ? '#fbbf24' : 
-                       e.type === 'card_start' ? '#60a5fa' : '#888'
-              }}>
-                {e.type === 'card_done' ? 'DONE' : 
-                 e.type === 'card_error' ? 'FAIL' : 
-                 e.type === 'finished' ? 'FINI' : 
-                 e.type === 'card_start' ? 'SEND' : 'INFO'}
+              <span style={{ color: e.type === 'card_done' ? '#4ade80' : e.type === 'card_error' ? '#f87171' : e.type === 'finished' ? '#fbbf24' : e.type === 'card_start' ? '#60a5fa' : '#888' }}>
+                {e.type === 'card_done' ? 'DONE' : e.type === 'card_error' ? 'FAIL' : e.type === 'finished' ? 'FINI' : e.type === 'card_start' ? 'SEND' : 'INFO'}
               </span>
               <span style={{ color: '#ddd' }}>
                 {e.titulo || e.text || (e.type === 'finished' ? `Importação finalizada: ${e.success} sucesso, ${e.failed} falha.` : '')}
@@ -233,69 +330,149 @@ export default function Preview() {
           {selected.size} tarefas pendentes selecionadas
         </span>
         <div style={{ marginLeft: 'auto', display: 'flex', gap: 12 }}>
-          <Btn size="xs" variant="subtle" onClick={() => addNewTask('Sprint ' + (sprints.length + 1), 'Nova Sprint')}>+ Nova Sprint</Btn>
-          <button onClick={() => setCollapsed({})} style={{ fontSize: 10, color: 'var(--t3)', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'var(--mono)' }}>expandir tudo</button>
+          <Btn size="xs" variant="subtle" onClick={() => addNewTask('Sprint ' + (sprints.length + 1), 'Nova Sprint')} title="Cria uma nova task em uma sprint separada">
+            + Nova Sprint / Task
+          </Btn>
+          <button onClick={() => setCollapsed({})} style={{ fontSize: 10, color: 'var(--t3)', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'var(--mono)' }}>
+            expandir tudo
+          </button>
         </div>
       </div>
 
       {/* Lista de sprints e tasks */}
       <div style={{ flex: 1, overflowY: 'auto', padding: '16px 20px' }}>
         {tasks.length === 0 ? (
-          <EmptyState 
-            icon="📝" 
-            title="Projeto Vazio" 
+          <EmptyState
+            icon="📝"
+            title="Projeto Vazio"
             description="Comece adicionando sua primeira tarefa manual."
             action={<Btn onClick={() => addNewTask()}>+ Criar Primeira Tarefa</Btn>}
           />
         ) : (
           sprints.map(sprint => {
-            const sprintPending = sprint.tasks.filter(t => t.status === 'pending').map(t => t.id)
-            const allSel = sprintPending.length > 0 && sprintPending.every(id => selected.has(id))
-            const someSel = sprintPending.some(id => selected.has(id)) && !allSel
-            const isCol = collapsed[sprint.label]
+            const sprintPending   = sprint.tasks.filter(t => t.status === 'pending').map(t => t.id)
+            const allSel          = sprintPending.length > 0 && sprintPending.every(id => selected.has(id))
+            const someSel         = sprintPending.some(id => selected.has(id)) && !allSel
+            const isCol           = collapsed[sprint.label]
+            const isEditingTitle  = sprintEditing === sprint.label
+            const isDragTarget    = dragOverSprint === sprint.label
 
             return (
               <div key={sprint.label} style={{ marginBottom: 16 }}>
+
                 {/* Sprint header */}
-                <div 
-                  onClick={() => setCollapsed(p => ({ ...p, [sprint.label]: !p[sprint.label] }))}
+                <div
+                  onClick={() => !isEditingTitle && setCollapsed(p => ({ ...p, [sprint.label]: !p[sprint.label] }))}
                   style={{
                     display: 'flex', alignItems: 'center', gap: 10,
-                    padding: '10px 14px', background: 'var(--s1)',
-                    border: '1px solid var(--b1)', borderRadius: 'var(--r-sm)',
-                    cursor: 'pointer', position: 'sticky', top: 0, zIndex: 10
+                    padding: '10px 14px',
+                    background: isDragTarget ? 'var(--ac-bg)' : 'var(--s1)',
+                    border: `1px solid ${isDragTarget ? 'var(--ac)' : 'var(--b1)'}`,
+                    borderRadius: 'var(--r-sm)',
+                    cursor: isEditingTitle ? 'default' : 'pointer',
+                    position: 'sticky', top: 0, zIndex: 10,
+                    transition: 'background .1s, border-color .1s',
                   }}
                 >
-                  <button onClick={e => { e.stopPropagation(); toggleSprint(sprint.label) }}
-                    style={{ background: 'none', border: 'none', color: allSel ? 'var(--ac2)' : someSel ? 'var(--ac)' : 'var(--t3)', cursor: 'pointer', fontSize: 15, padding: 0, display: 'flex' }}>
+                  <button
+                    onClick={e => { e.stopPropagation(); toggleSprint(sprint.label) }}
+                    style={{ background: 'none', border: 'none', color: allSel ? 'var(--ac2)' : someSel ? 'var(--ac)' : 'var(--t3)', cursor: 'pointer', fontSize: 15, padding: 0, display: 'flex' }}
+                  >
                     {allSel ? '☑' : someSel ? '⊟' : '☐'}
                   </button>
+
                   <span style={{ color: 'var(--t3)', fontSize: 10 }}>{isCol ? '▶' : '▼'}</span>
                   <span style={{ fontSize: 10, fontFamily: 'var(--mono)', color: 'var(--ac)', fontWeight: 800 }}>{sprint.label}</span>
-                  <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--t1)' }}>{sprint.titulo}</span>
-                  
-                  <div style={{ marginLeft: 'auto', display: 'flex', gap: 10, alignItems: 'center' }}>
-                    <Btn size="xs" variant="subtle" onClick={(e) => { e.stopPropagation(); addNewTask(sprint.label, sprint.titulo) }}>
+
+                  {isEditingTitle ? (
+                    <input
+                      autoFocus
+                      defaultValue={sprint.titulo}
+                      onBlur={e => renameSprint(sprint.label, e.target.value)}
+                      onKeyDown={e => {
+                        e.stopPropagation()
+                        if (e.key === 'Enter')  renameSprint(sprint.label, e.target.value)
+                        if (e.key === 'Escape') setSprintEditing(null)
+                      }}
+                      onClick={e => e.stopPropagation()}
+                      style={{
+                        flex: 1, fontSize: 13, fontWeight: 700, color: 'var(--t1)',
+                        background: 'var(--s2)', border: '1px solid var(--ac)',
+                        borderRadius: 4, padding: '2px 8px', outline: 'none', fontFamily: 'inherit',
+                      }}
+                    />
+                  ) : (
+                    <span
+                      onDoubleClick={e => { e.stopPropagation(); setSprintEditing(sprint.label) }}
+                      title="Duplo clique para renomear"
+                      style={{ flex: 1, fontSize: 13, fontWeight: 700, color: 'var(--t1)' }}
+                    >
+                      {sprint.titulo}
+                    </span>
+                  )}
+
+                  <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                    <Btn size="xs" variant="subtle" onClick={e => { e.stopPropagation(); addNewTask(sprint.label, sprint.titulo) }}>
                       + Tarefa
                     </Btn>
                     <span style={{ fontSize: 10, color: 'var(--t3)', fontFamily: 'var(--mono)', background: 'var(--s3)', padding: '2px 6px', borderRadius: 4 }}>
                       {sprint.tasks.length} tasks
                     </span>
+                    <button
+                      onClick={e => { e.stopPropagation(); deleteSprint(sprint.label, sprint.titulo) }}
+                      title="Excluir sprint e todas as suas tasks"
+                      style={{ background: 'none', border: 'none', color: 'var(--t3)', cursor: 'pointer', fontSize: 13, padding: '0 2px', display: 'flex', alignItems: 'center', lineHeight: 1 }}
+                    >
+                      ✕
+                    </button>
                   </div>
                 </div>
 
+                {/* Sprint body — drop zone */}
                 {!isCol && (
-                  <div style={{ paddingLeft: 4, marginTop: 6, display: 'flex', flexDirection: 'column', gap: 4 }}>
-                    {sprint.tasks.map(task => (
-                      <TaskRow key={task.id}
-                        task={task}
-                        isSelected={selected.has(task.id)}
-                        onToggle={() => task.status === 'pending' && toggleTask(task.id)}
-                        onEdit={() => setEditing(task)}
-                        onSaveInline={(fields) => saveEdit(task.id, fields)}
-                        onDelete={() => deleteTask(task.id)}
-                      />
-                    ))}
+                  <div
+                    onDragOver={e => handleDragOverSprint(e, sprint.label)}
+                    onDrop={e => handleDrop(e, sprint.label, sprint.titulo)}
+                    onDragLeave={e => {
+                      if (!e.currentTarget.contains(e.relatedTarget)) {
+                        setDragOverSprint(null)
+                        setDropIndicator(null)
+                      }
+                    }}
+                    style={{ paddingLeft: 4, marginTop: 6, display: 'flex', flexDirection: 'column', minHeight: 8 }}
+                  >
+                    {sprint.tasks.length === 0 && isDragTarget && (
+                      <div style={{ height: 36, border: '2px dashed var(--ac)', borderRadius: 'var(--r-sm)', opacity: 0.5 }} />
+                    )}
+
+                    {sprint.tasks.map((task, idx) => {
+                      const ind = dropIndicator
+                      const showBefore = ind?.sprintLabel === sprint.label && ind?.beforeTaskId === task.id
+                      const showAfter  = ind?.sprintLabel === sprint.label && (
+                        ind?.beforeTaskId === '__after_' + task.id ||
+                        (ind?.beforeTaskId === '__end__' && idx === sprint.tasks.length - 1)
+                      )
+
+                      return (
+                        <div key={task.id}>
+                          {showBefore && <DropLine />}
+                          <div style={{ marginBottom: 4 }}>
+                            <TaskRow
+                              task={task}
+                              isSelected={selected.has(task.id)}
+                              onToggle={() => task.status === 'pending' && toggleTask(task.id)}
+                              onEdit={() => setEditing(task)}
+                              onSaveInline={fields => saveEdit(task.id, fields)}
+                              onDelete={() => deleteTask(task.id)}
+                              onDragStart={() => handleDragStart(task.id, sprint.label)}
+                              onDragEnd={clearDrag}
+                              onDragOver={e => handleDragOverTask(e, sprint.label, task.id)}
+                            />
+                          </div>
+                          {showAfter && <DropLine />}
+                        </div>
+                      )
+                    })}
                   </div>
                 )}
               </div>
@@ -306,79 +483,111 @@ export default function Preview() {
 
       {/* Edit Modal */}
       {editing && (
-        <TaskEditModal
-          task={editing}
-          onSave={saveEdit}
-          onClose={() => setEditing(null)}
-        />
+        <TaskEditModal task={editing} sprints={sprints} onSave={saveEdit} onClose={() => setEditing(null)} />
       )}
     </div>
   )
 }
 
+// ─── Drop Line ────────────────────────────────────────────────────────────────
+function DropLine() {
+  return (
+    <div style={{
+      height: 2, background: 'var(--ac)', borderRadius: 99,
+      margin: '2px 0', boxShadow: '0 0 6px var(--ac)',
+    }} />
+  )
+}
+
 // ─── Task Row ─────────────────────────────────────────────────────────────────
-function TaskRow({ task, isSelected, onToggle, onEdit, onSaveInline, onDelete }) {
-  const [hov, setHov] = useState(false)
+function TaskRow({ task, isSelected, onToggle, onEdit, onSaveInline, onDelete, onDragStart, onDragEnd, onDragOver }) {
+  const [hov,        setHov]        = useState(false)
+  const [dragging,   setDragging]   = useState(false)
   const [inlineEdit, setInlineEdit] = useState(false)
-  const [tempTitle, setTempTitle] = useState(task.titulo)
-  
+  const [tempTitle,  setTempTitle]  = useState(task.titulo)
+
   const isDone = task.status === 'done'
   const isErr  = task.status === 'error'
   const isImp  = task.status === 'importing'
   const isPend = task.status === 'pending'
 
-  const handleInlineSave = () => {
-    if (tempTitle.trim() && tempTitle !== task.titulo) {
-      onSaveInline({ titulo: tempTitle.trim() })
-    }
+  function handleInlineSave() {
+    if (tempTitle.trim() && tempTitle !== task.titulo) onSaveInline({ titulo: tempTitle.trim() })
     setInlineEdit(false)
   }
 
   return (
     <div
+      draggable={isPend}
+      onDragStart={e => {
+        if (!isPend) { e.preventDefault(); return }
+        e.dataTransfer.effectAllowed = 'move'
+        setDragging(true)
+        onDragStart()
+      }}
+      onDragEnd={() => { setDragging(false); onDragEnd() }}
+      onDragOver={onDragOver}
       onMouseEnter={() => setHov(true)}
       onMouseLeave={() => setHov(false)}
       onClick={isPend && !inlineEdit ? onToggle : undefined}
       style={{
-        display: 'flex', alignItems: 'center', gap: 10,
+        display: 'flex', alignItems: 'center', gap: 8,
         padding: '10px 14px', borderRadius: 'var(--r-sm)',
-        background: isDone ? 'rgba(34, 197, 94, 0.04)' : isSelected ? 'rgba(var(--ac-rgb), 0.08)' : hov ? 'var(--s1)' : 'transparent',
+        background: isDone ? 'rgba(34,197,94,0.04)' : isSelected ? 'rgba(var(--ac-rgb),0.08)' : hov ? 'var(--s1)' : 'transparent',
         border: `1px solid ${isSelected && isPend ? 'var(--ac)' : hov ? 'var(--b1)' : 'transparent'}`,
-        cursor: isPend && !inlineEdit ? 'pointer' : 'default',
+        cursor: dragging ? 'grabbing' : isPend && !inlineEdit ? 'pointer' : 'default',
+        opacity: dragging ? 0.4 : 1,
         transition: 'all .1s',
       }}
     >
+      {/* Grip handle — visible on hover for pending tasks */}
+      <span
+        title="Arrastar para reordenar"
+        style={{
+          fontSize: 14, color: 'var(--t3)',
+          cursor: isPend ? 'grab' : 'default',
+          opacity: hov && isPend ? 1 : 0,
+          flexShrink: 0, transition: 'opacity .1s',
+          userSelect: 'none', lineHeight: 1,
+        }}
+      >
+        ⠿
+      </span>
+
+      {/* Status indicator / checkbox */}
       <span style={{ fontSize: 14, color: isDone ? 'var(--green)' : isErr ? 'var(--red)' : isSelected ? 'var(--ac2)' : 'var(--t3)', flexShrink: 0, display: 'flex' }}>
         {isDone ? '✓' : isErr ? '✗' : isImp ? <Spinner size={14} /> : isSelected ? '☑' : '☐'}
       </span>
 
+      {/* Title — click to inline-edit */}
       {inlineEdit ? (
-        <input 
+        <input
           autoFocus
           value={tempTitle}
           onChange={e => setTempTitle(e.target.value)}
           onBlur={handleInlineSave}
-          onKeyDown={e => e.key === 'Enter' && handleInlineSave()}
+          onKeyDown={e => {
+            if (e.key === 'Enter')  handleInlineSave()
+            if (e.key === 'Escape') { setTempTitle(task.titulo); setInlineEdit(false) }
+            e.stopPropagation()
+          }}
           onClick={e => e.stopPropagation()}
           style={{
             flex: 1, background: 'var(--s2)', border: '1px solid var(--ac)',
-            borderRadius: 4, color: 'var(--t1)', fontSize: 12, padding: '4px 8px',
-            outline: 'none', fontFamily: 'inherit'
+            borderRadius: 4, color: 'var(--t1)', fontSize: 12,
+            padding: '4px 8px', outline: 'none', fontFamily: 'inherit',
           }}
         />
       ) : (
-        <span 
-          onClick={e => {
-            if (isPend) {
-              e.stopPropagation()
-              setInlineEdit(true)
-            }
-          }}
-          style={{ 
-            flex: 1, fontSize: 13, color: isDone ? 'var(--t3)' : 'var(--t1)', 
+        <span
+          onClick={e => { if (isPend) { e.stopPropagation(); setInlineEdit(true) } }}
+          title={isPend ? 'Clique para editar título' : undefined}
+          style={{
+            flex: 1, fontSize: 13,
+            color: isDone ? 'var(--t3)' : 'var(--t1)',
             textDecoration: isDone ? 'line-through' : 'none',
-            fontWeight: isSelected ? 600 : 400
-          }} 
+            fontWeight: isSelected ? 600 : 400,
+          }}
           className="truncate"
         >
           {task.titulo}
@@ -393,43 +602,20 @@ function TaskRow({ task, isSelected, onToggle, onEdit, onSaveInline, onDelete })
             ☑{task.checkItems.length}
           </span>
         )}
-        
+
         {hov && isPend && !inlineEdit && (
           <div style={{ display: 'flex', gap: 4 }} onClick={e => e.stopPropagation()}>
-            <button 
-              onClick={onEdit} 
-              title="Editar detalhes" 
-              style={{ 
-                background: 'var(--s3)', 
-                border: '1px solid var(--b2)', 
-                cursor: 'pointer', 
-                padding: '3px 6px',
-                borderRadius: 4,
-                fontSize: 12,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                color: 'var(--t1)'
-              }}
+            <button
+              onClick={onEdit}
+              title="Editar detalhes"
+              style={{ background: 'var(--s3)', border: '1px solid var(--b2)', cursor: 'pointer', padding: '3px 6px', borderRadius: 4, fontSize: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--t1)' }}
             >
               ✏️
             </button>
-            <button 
-              onClick={onDelete} 
-              title="Excluir" 
-              style={{ 
-                background: 'var(--red-bg)', 
-                border: '1px solid var(--red)', 
-                cursor: 'pointer', 
-                padding: '3px 6px',
-                borderRadius: 4,
-                fontSize: 12,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                color: 'var(--red)',
-                fontWeight: 'bold'
-              }}
+            <button
+              onClick={onDelete}
+              title="Excluir"
+              style={{ background: 'var(--red-bg)', border: '1px solid var(--red)', cursor: 'pointer', padding: '3px 6px', borderRadius: 4, fontSize: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--red)', fontWeight: 'bold' }}
             >
               ✕
             </button>
@@ -441,17 +627,46 @@ function TaskRow({ task, isSelected, onToggle, onEdit, onSaveInline, onDelete })
 }
 
 // ─── Task Edit Modal ──────────────────────────────────────────────────────────
-function TaskEditModal({ task, onSave, onClose }) {
-  const [titulo,     setTitulo]     = useState(task.titulo)
-  const [tipo,       setTipo]       = useState(task.tipo)
-  const [destino,    setDestino]    = useState(task.destino_col)
-  const [desc,       setDesc]       = useState(task.desc_limpa || '')
-  const [dueDate,    setDueDate]    = useState(task.due_date || '')
-  const [items,      setItems]      = useState([...(task.checkItems || [])])
-  const [links,      setLinks]      = useState([...(task.links || [])])
-  const [newItem,    setNewItem]    = useState('')
-  const [newLinkUrl, setNewLinkUrl] = useState('')
-  const [newLinkLbl, setNewLinkLbl] = useState('')
+function TaskEditModal({ task, sprints, onSave, onClose }) {
+  const [titulo,       setTitulo]       = useState(task.titulo)
+  const [tipo,         setTipo]         = useState(task.tipo)
+  const [destino,      setDestino]      = useState(task.destino_col)
+  const [desc,         setDesc]         = useState(task.desc_limpa || '')
+  const [dueDate,      setDueDate]      = useState(task.due_date || '')
+  const [items,        setItems]        = useState([...(task.checkItems || [])])
+  const [links,        setLinks]        = useState([...(task.links || [])])
+  const [newItem,      setNewItem]      = useState('')
+  const [newLinkUrl,   setNewLinkUrl]   = useState('')
+  const [newLinkLbl,   setNewLinkLbl]   = useState('')
+  const [sprintLabel,  setSprintLabel]  = useState(task.sprint || 'Geral')
+  const [sprintTitle,  setSprintTitle]  = useState(task.sprint_title || task.sprint || 'Geral')
+  const [newSprintName,setNewSprintName]= useState('')
+  const [showNewSprint,setShowNewSprint]= useState(false)
+  const [position,     setPosition]     = useState(task.position ?? 0)
+
+  // Opções de sprint para o Select
+  const sprintOptions = (sprints || []).map(s => ({ value: s.label, label: `${s.label} — ${s.titulo}` }))
+  const NOVA_SPRINT   = '__nova__'
+
+  function handleSprintChange(e) {
+    const val = e.target.value
+    if (val === NOVA_SPRINT) {
+      setShowNewSprint(true)
+    } else {
+      setShowNewSprint(false)
+      setSprintLabel(val)
+      const found = (sprints || []).find(s => s.label === val)
+      setSprintTitle(found?.titulo || val)
+    }
+  }
+
+  function confirmNewSprint() {
+    const name = newSprintName.trim()
+    if (!name) return
+    setSprintLabel(name)
+    setSprintTitle(name)
+    setShowNewSprint(false)
+  }
 
   function addItem() { const t = newItem.trim(); if (t) { setItems(p => [...p, t]); setNewItem('') } }
   function addLink() {
@@ -467,7 +682,13 @@ function TaskEditModal({ task, onSave, onClose }) {
       footer={
         <>
           <Btn variant="ghost" onClick={onClose}>Cancelar</Btn>
-          <Btn onClick={() => onSave(task.id, { titulo, tipo, destino_col: destino, desc_limpa: desc, due_date: dueDate || null, checkItems: items, links })}>
+          <Btn onClick={() => onSave(task.id, {
+            titulo, tipo, destino_col: destino,
+            desc_limpa: desc, due_date: dueDate || null,
+            checkItems: items, links,
+            sprint: sprintLabel, sprint_title: sprintTitle,
+            position: Number(position),
+          })}>
             Salvar Alterações
           </Btn>
         </>
@@ -482,6 +703,46 @@ function TaskEditModal({ task, onSave, onClose }) {
           <Select label="Lista Trello" value={destino} onChange={e => setDestino(e.target.value)}
             options={DESTINOS.map(d => ({ value: d, label: d }))} />
           <Input label="Entrega" type="date" value={dueDate} onChange={e => setDueDate(e.target.value)} />
+        </div>
+
+        {/* Sprint e Posição */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 12, alignItems: 'end' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+            <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--t3)', textTransform: 'uppercase', letterSpacing: '.5px', fontFamily: 'var(--mono)' }}>Sprint</label>
+            {showNewSprint ? (
+              <div style={{ display: 'flex', gap: 6 }}>
+                <input
+                  autoFocus
+                  value={newSprintName}
+                  onChange={e => setNewSprintName(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter') confirmNewSprint(); if (e.key === 'Escape') setShowNewSprint(false) }}
+                  placeholder="Nome da nova sprint..."
+                  style={{ flex: 1, padding: '8px 11px', background: 'var(--s2)', border: '1px solid var(--ac)', borderRadius: 'var(--r-sm)', color: 'var(--t1)', fontSize: 12, outline: 'none' }}
+                />
+                <Btn size="sm" onClick={confirmNewSprint}>OK</Btn>
+                <Btn size="sm" variant="ghost" onClick={() => setShowNewSprint(false)}>✕</Btn>
+              </div>
+            ) : (
+              <select
+                value={sprintLabel}
+                onChange={handleSprintChange}
+                style={{ width: '100%', padding: '8px 11px', background: 'var(--s2)', border: '1px solid var(--b1)', borderRadius: 'var(--r-sm)', color: 'var(--t1)', fontSize: 12, cursor: 'pointer' }}
+              >
+                {sprintOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                <option value={NOVA_SPRINT}>+ Nova Sprint...</option>
+              </select>
+            )}
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+            <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--t3)', textTransform: 'uppercase', letterSpacing: '.5px', fontFamily: 'var(--mono)' }}>Posição</label>
+            <input
+              type="number"
+              min="0"
+              value={position}
+              onChange={e => setPosition(e.target.value)}
+              style={{ width: 70, padding: '8px 11px', background: 'var(--s2)', border: '1px solid var(--b1)', borderRadius: 'var(--r-sm)', color: 'var(--t1)', fontSize: 12, outline: 'none' }}
+            />
+          </div>
         </div>
 
         <Textarea label="Descrição" rows={4} value={desc} onChange={e => setDesc(e.target.value)} />
