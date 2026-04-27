@@ -1,22 +1,22 @@
-const { app, BrowserWindow } = require('electron')
+const { app, BrowserWindow, protocol } = require('electron')
 const path = require('path')
 const { initDatabase } = require('./db/database')
 const { registerHandlers } = require('./ipc/ipcHandlers')
 
-const isDev = process.env.NODE_ENV !== 'production'
+// Usa app.isPackaged — mais confiável que NODE_ENV para builds de produção
+const isDev = !app.isPackaged
 
 let mainWindow
 
 function createWindow() {
   const preloadPath = path.join(__dirname, 'preload.js')
-  console.log('[Main] Preload path:', preloadPath)
 
   mainWindow = new BrowserWindow({
-    width:  1340,
-    height: 900,
+    width:     1340,
+    height:    900,
     minWidth:  1100,
     minHeight: 720,
-    backgroundColor: '#0a0a0c',
+    backgroundColor: '#111318',
     titleBarStyle: 'hiddenInset',
     trafficLightPosition: { x: 16, y: 18 },
     webPreferences: {
@@ -35,11 +35,25 @@ function createWindow() {
   }
 }
 
+// Necessário no macOS para lidar com abertura por arquivos / URLs
+app.on('open-file', (event) => {
+  event.preventDefault()
+})
+
+app.on('open-url', (event) => {
+  event.preventDefault()
+})
+
 app.whenReady().then(() => {
   const db = initDatabase()
   registerHandlers(db)
   createWindow()
+
+  app.on('activate', () => {
+    if (BrowserWindow.getAllWindows().length === 0) createWindow()
+  })
 })
 
-app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit() })
-app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow() })
+app.on('window-all-closed', () => {
+  if (process.platform !== 'darwin') app.quit()
+})

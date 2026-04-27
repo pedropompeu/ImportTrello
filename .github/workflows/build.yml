@@ -1,0 +1,148 @@
+name: Build & Release
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*.*.*']
+
+# Permissão para criar Releases e fazer upload de assets
+permissions:
+  contents: write
+
+jobs:
+
+  # ────────────────────────────────────────────────────────────────
+  # Linux — AppImage + deb + rpm
+  # ────────────────────────────────────────────────────────────────
+  build-linux:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Instalar dependências (sem postinstall)
+        run: npm install --ignore-scripts
+
+      - name: Rebuild better-sqlite3 para Electron
+        run: ./node_modules/.bin/electron-rebuild -f -w better-sqlite3 --version 33.0.0
+
+      - name: Build Linux
+        run: npm run build:linux
+
+      - name: Upload artefatos Linux
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-artifacts
+          path: |
+            dist-electron/*.AppImage
+            dist-electron/*.deb
+            dist-electron/*.rpm
+          if-no-files-found: error
+
+  # ────────────────────────────────────────────────────────────────
+  # Windows — NSIS installer + Portable
+  # ────────────────────────────────────────────────────────────────
+  build-windows:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Instalar dependências (sem postinstall)
+        run: npm install --ignore-scripts
+
+      - name: Rebuild better-sqlite3 para Electron
+        shell: bash
+        run: ./node_modules/.bin/electron-rebuild -f -w better-sqlite3 --version 33.0.0
+
+      - name: Build Windows
+        run: npm run build:win
+
+      - name: Upload artefatos Windows
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-artifacts
+          path: dist-electron/*.exe
+          if-no-files-found: error
+
+  # ────────────────────────────────────────────────────────────────
+  # macOS — DMG + ZIP (x64 + arm64)
+  # ────────────────────────────────────────────────────────────────
+  build-mac:
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Instalar dependências (sem postinstall)
+        run: npm install --ignore-scripts
+
+      - name: Rebuild better-sqlite3 para Electron
+        run: ./node_modules/.bin/electron-rebuild -f -w better-sqlite3 --version 33.0.0
+
+      - name: Build macOS
+        run: npm run build:mac
+
+      - name: Upload artefatos macOS
+        uses: actions/upload-artifact@v4
+        with:
+          name: mac-artifacts
+          path: |
+            dist-electron/*.dmg
+            dist-electron/*.zip
+          if-no-files-found: error
+
+  # ────────────────────────────────────────────────────────────────
+  # Release — só roda quando o trigger é uma tag v*.*.*
+  # ────────────────────────────────────────────────────────────────
+  release:
+    needs: [build-linux, build-windows, build-mac]
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+
+    steps:
+      - name: Baixar artefatos Linux
+        uses: actions/download-artifact@v4
+        with:
+          name: linux-artifacts
+          path: artifacts
+
+      - name: Baixar artefatos Windows
+        uses: actions/download-artifact@v4
+        with:
+          name: windows-artifacts
+          path: artifacts
+
+      - name: Baixar artefatos macOS
+        uses: actions/download-artifact@v4
+        with:
+          name: mac-artifacts
+          path: artifacts
+
+      - name: Criar GitHub Release e anexar assets
+        uses: softprops/action-gh-release@v2
+        with:
+          files: artifacts/*
+          generate_release_notes: true
+          fail_on_unmatched_files: true
