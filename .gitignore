@@ -6,3 +6,6 @@ dist
 out
 .electron-builder-error.log
 package-lock.json
+dist-electron
+.claude
+Thumbs.db
