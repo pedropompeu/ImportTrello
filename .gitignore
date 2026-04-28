@@ -5,7 +5,6 @@ dist
 .DS_Store
 out
 .electron-builder-error.log
-package-lock.json
 dist-electron
 .claude
 Thumbs.db
