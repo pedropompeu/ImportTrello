@@ -1,6 +1,6 @@
-# Trello Smart Importer v2 — AI-Powered Task Importer
+# Tasko Trello Importer — AI-Powered Task Importer
 
-O **Trello Smart Importer v2** é uma aplicação desktop de alta performance projetada para automatizar a criação de fluxos de trabalho complexos no Trello. Ele utiliza Inteligência Artificial e processamento de dados estruturados para transformar descrições simples ou planilhas em quadros organizados com Sprints, tarefas detalhadas, checklists técnicos e anexos.
+O **Tasko Trello Importer** é uma aplicação desktop de alta performance projetada para automatizar a criação de fluxos de trabalho complexos no Trello. Ele utiliza Inteligência Artificial e processamento de dados estruturados para transformar descrições simples ou planilhas em quadros organizados com Sprints, tarefas detalhadas, checklists técnicos e anexos.
 
 ---
 
@@ -24,7 +24,7 @@ O **Trello Smart Importer v2** é uma aplicação desktop de alta performance pr
 
 
 ### 1. Fundação e Infraestrutura (Fase 1)
-*   **Stack Tecnológica:** Implementação da base utilizando **Electron** (Backend Desktop), **Vite + React** (Frontend) e **JavaScript/TypeScript**.
+*   **Stack Tecnológica:** Implementação da base utilizando **Electron** (Backend Desktop), **Vite + React** (Frontend) e **JavaScript**.
 *   **Banco de Dados Local:** Configuração do **SQLite** (`better-sqlite3`) para persistência de dados. Isso permite que o usuário crie rascunhos de projetos, salve configurações de API e mantenha um histórico de importações sem depender de conexões externas constantes.
 *   **Criptografia:** Implementação de uma camada de segurança para que chaves de API e Tokens sejam salvos de forma criptografada no banco de dados local.
 
@@ -36,7 +36,7 @@ O **Trello Smart Importer v2** é uma aplicação desktop de alta performance pr
 *   **Integração IA Multi-provedor:** Suporte configurado para três gigantes do mercado:
     *   **OpenAI (GPT-4o)**
     *   **Google Gemini (1.5 Pro)**
-    *   **Anthropic (Claude 3.5 Sonnet)**
+    *   **Anthropic (Claude Sonnet 4)**
     *   Suporte a provedores customizados (ex: Ollama) via interface compatível com OpenAI.
 
 ### 3. Motor de Ingestão e Processamento (Fase 3)
@@ -104,7 +104,16 @@ Ao clicar em "Enviar Selecionadas", o app:
     ```
 3.  **Build (Gerar Executável):**
     ```bash
+    # Plataforma atual
     npm run build
+
+    # Por plataforma específica
+    npm run build:win    # Windows (.exe NSIS + Portable)
+    npm run build:linux  # Linux (.AppImage + .deb + .rpm)
+    npm run build:mac    # macOS (.dmg + .zip)
+
+    # Todas as plataformas de uma vez
+    npm run build:all
     ```
 
 ---
