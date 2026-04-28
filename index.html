@@ -418,7 +418,14 @@
 
     /* ── How it works ── */
     .how-section {
-      background: var(--s1);
+      background-color: var(--s1);
+      background-image:
+        linear-gradient(to right, transparent 30%, var(--s1) 75%),
+        url('assets/office-kamban.png');
+      background-size: cover;
+      background-position: left center;
+      background-repeat: no-repeat;
+      position: relative;
       border-top: 1px solid var(--border);
       border-bottom: 1px solid var(--border);
     }
