@@ -420,14 +420,13 @@
     .how-section {
       background-color: var(--s1);
       background-image:
-        linear-gradient(to right, transparent 30%, var(--s1) 75%),
+        linear-gradient(to right, transparent 30%, var(--s1) 72%),
+        linear-gradient(rgba(13, 15, 20, 0.55), rgba(13, 15, 20, 0.55)),
         url('assets/office-kamban.png');
-      background-size: cover;
+      background-size: 65% auto;
       background-position: left center;
       background-repeat: no-repeat;
       position: relative;
-      border-top: 1px solid var(--border);
-      border-bottom: 1px solid var(--border);
     }
 
     .steps {
@@ -860,6 +859,15 @@
 
       .oss-inner {
         flex-direction: column;
+      }
+
+      .how-section {
+        background-image:
+          linear-gradient(to bottom, transparent 20%, var(--s1) 60%),
+          url('assets/office-kamban.png');
+        background-size: cover;
+        background-position: top center;
+        background-repeat: no-repeat;
       }
 
       .steps {
