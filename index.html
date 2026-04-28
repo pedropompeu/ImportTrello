@@ -1,0 +1,1497 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Tasko — Do texto ao Trello em segundos</title>
+  <meta name="description" content="Você cria a ideia. A IA cria as tarefas. Tasko importa. Trello alinha." />
+  <meta property="og:title" content="Tasko — Importador inteligente para o Trello" />
+  <meta property="og:description" content="Você cria a ideia. A IA cria as tarefas. Tasko importa. Trello alinha." />
+  <meta property="og:image" content="assets/screenshot-dashboard.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500&display=swap"
+    rel="stylesheet" />
+  <style>
+    *,
+    *::before,
+    *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    :root {
+      --bg: #0d0f14;
+      --s1: #13161e;
+      --s2: #191c27;
+      --s3: #1f2333;
+      --border: #2a2d3e;
+      --border2: #363a52;
+      --t1: #eceef5;
+      --t2: #9096b4;
+      --t3: #555a75;
+      --ac: #6c63ff;
+      --ac2: #8b85ff;
+      --ac-glow: rgba(108, 99, 255, .25);
+      --green: #34d399;
+      --radius: 12px;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--t1);
+      font-family: 'Inter', sans-serif;
+      font-size: 16px;
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+      overflow-x: hidden;
+    }
+
+    /* ── Scrollbar ── */
+    ::-webkit-scrollbar {
+      width: 6px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: var(--bg);
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: var(--border2);
+      border-radius: 99px;
+    }
+
+    /* ── Nav ── */
+    nav {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 100;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 40px;
+      height: 64px;
+      background: rgba(13, 15, 20, .85);
+      backdrop-filter: blur(16px);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .nav-logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 20px;
+      font-weight: 800;
+      color: var(--t1);
+      text-decoration: none;
+      letter-spacing: -.4px;
+    }
+
+    .nav-logo .logo-icon {
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      background: linear-gradient(135deg, var(--ac), #a78bfa);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+    }
+
+    .nav-links {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .nav-links a {
+      color: var(--t2);
+      text-decoration: none;
+      font-size: 14px;
+      padding: 6px 14px;
+      border-radius: 8px;
+      transition: all .15s;
+    }
+
+    .nav-links a:hover {
+      color: var(--t1);
+      background: var(--s2);
+    }
+
+    .btn-nav {
+      background: var(--ac);
+      color: #fff;
+      font-size: 13px;
+      font-weight: 600;
+      padding: 8px 18px;
+      border-radius: 8px;
+      text-decoration: none;
+      transition: all .15s;
+      border: none;
+      cursor: pointer;
+    }
+
+    .btn-nav:hover {
+      background: var(--ac2);
+      transform: translateY(-1px);
+    }
+
+    /* ── Hero ── */
+    .hero {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 120px 24px 80px;
+      text-align: center;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .hero::before {
+      content: '';
+      position: absolute;
+      top: -200px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 800px;
+      height: 800px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(108, 99, 255, .12) 0%, transparent 70%);
+      pointer-events: none;
+    }
+
+    .hero-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--s2);
+      border: 1px solid var(--border2);
+      padding: 6px 14px;
+      border-radius: 99px;
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--ac2);
+      font-family: 'JetBrains Mono', monospace;
+      margin-bottom: 28px;
+      letter-spacing: .3px;
+    }
+
+    .hero-badge .dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--green);
+      animation: pulse 2s ease infinite;
+    }
+
+    @keyframes pulse {
+
+      0%,
+      100% {
+        opacity: 1
+      }
+
+      50% {
+        opacity: .3
+      }
+    }
+
+    h1 {
+      font-size: clamp(40px, 6vw, 72px);
+      font-weight: 900;
+      line-height: 1.1;
+      letter-spacing: -2px;
+      margin-bottom: 24px;
+      background: linear-gradient(135deg, #fff 0%, #a0a8cc 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    h1 span {
+      background: linear-gradient(135deg, var(--ac) 0%, #a78bfa 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .hero-tagline {
+      font-size: clamp(16px, 2vw, 20px);
+      color: var(--t2);
+      max-width: 600px;
+      margin: 0 auto 40px;
+      line-height: 1.7;
+    }
+
+    .hero-tagline strong {
+      color: var(--t1);
+      font-weight: 600;
+    }
+
+    .hero-cta {
+      display: flex;
+      gap: 12px;
+      justify-content: center;
+      flex-wrap: wrap;
+      margin-bottom: 16px;
+    }
+
+    .btn-primary {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--ac);
+      color: #fff;
+      font-weight: 700;
+      font-size: 15px;
+      padding: 14px 28px;
+      border-radius: 10px;
+      text-decoration: none;
+      transition: all .2s;
+      border: none;
+      cursor: pointer;
+      box-shadow: 0 0 40px var(--ac-glow);
+    }
+
+    .btn-primary:hover {
+      background: var(--ac2);
+      transform: translateY(-2px);
+      box-shadow: 0 8px 40px var(--ac-glow);
+    }
+
+    .btn-ghost {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: transparent;
+      color: var(--t2);
+      font-weight: 600;
+      font-size: 15px;
+      padding: 14px 28px;
+      border-radius: 10px;
+      text-decoration: none;
+      transition: all .2s;
+      border: 1px solid var(--border2);
+      cursor: pointer;
+    }
+
+    .btn-ghost:hover {
+      color: var(--t1);
+      border-color: var(--border2);
+      background: var(--s2);
+    }
+
+    .hero-note {
+      font-size: 12px;
+      color: var(--t3);
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    /* ── Screenshot hero ── */
+    .hero-screenshot {
+      margin-top: 64px;
+      width: 100%;
+      max-width: 960px;
+      border-radius: 16px;
+      overflow: hidden;
+      border: 1px solid var(--border);
+      box-shadow: 0 40px 120px rgba(0, 0, 0, .6), 0 0 0 1px var(--border);
+      position: relative;
+    }
+
+    .hero-screenshot::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, var(--ac), transparent);
+    }
+
+    .screenshot-bar {
+      background: var(--s1);
+      padding: 12px 16px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .dot-red {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: #ff5f57;
+    }
+
+    .dot-yellow {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: #ffbd2e;
+    }
+
+    .dot-green {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: #28c840;
+    }
+
+    .screenshot-url {
+      flex: 1;
+      background: var(--s2);
+      border-radius: 6px;
+      padding: 4px 12px;
+      font-size: 11px;
+      color: var(--t3);
+      font-family: 'JetBrains Mono', monospace;
+      text-align: center;
+      margin: 0 12px;
+    }
+
+    .hero-screenshot img {
+      width: 100%;
+      display: block;
+    }
+
+    .screenshot-placeholder {
+      width: 100%;
+      aspect-ratio: 16/9;
+      background: linear-gradient(135deg, var(--s2) 0%, var(--s3) 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      gap: 12px;
+      color: var(--t3);
+      font-size: 14px;
+    }
+
+    /* ── Section base ── */
+    section {
+      padding: 100px 24px;
+    }
+
+    .container {
+      max-width: 1100px;
+      margin: 0 auto;
+    }
+
+    .section-label {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--ac2);
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      font-family: 'JetBrains Mono', monospace;
+      margin-bottom: 16px;
+      display: block;
+    }
+
+    .section-title {
+      font-size: clamp(28px, 4vw, 44px);
+      font-weight: 800;
+      line-height: 1.15;
+      letter-spacing: -1px;
+      margin-bottom: 16px;
+    }
+
+    .section-sub {
+      font-size: 18px;
+      color: var(--t2);
+      max-width: 540px;
+      line-height: 1.7;
+    }
+
+    /* ── How it works ── */
+    .how-section {
+      background: var(--s1);
+      border-top: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .steps {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 2px;
+      margin-top: 60px;
+    }
+
+    .step {
+      background: var(--bg);
+      padding: 40px 32px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .step:first-child {
+      border-radius: var(--radius) 0 0 var(--radius);
+    }
+
+    .step:last-child {
+      border-radius: 0 var(--radius) var(--radius) 0;
+    }
+
+    .step::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 2px;
+      background: linear-gradient(90deg, var(--ac), #a78bfa);
+      opacity: 0;
+      transition: opacity .3s;
+    }
+
+    .step:hover::before {
+      opacity: 1;
+    }
+
+    .step-num {
+      width: 40px;
+      height: 40px;
+      border-radius: 10px;
+      background: var(--ac-glow);
+      border: 1px solid rgba(108, 99, 255, .3);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+      font-weight: 900;
+      color: var(--ac2);
+      font-family: 'JetBrains Mono', monospace;
+      margin-bottom: 20px;
+    }
+
+    .step h3 {
+      font-size: 18px;
+      font-weight: 700;
+      margin-bottom: 10px;
+    }
+
+    .step p {
+      font-size: 14px;
+      color: var(--t2);
+      line-height: 1.7;
+    }
+
+    /* ── Features ── */
+    .features-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 16px;
+      margin-top: 60px;
+    }
+
+    .feature-card {
+      background: var(--s1);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 28px;
+      transition: all .2s;
+      cursor: default;
+    }
+
+    .feature-card:hover {
+      border-color: var(--border2);
+      background: var(--s2);
+      transform: translateY(-3px);
+      box-shadow: 0 16px 40px rgba(0, 0, 0, .4);
+    }
+
+    .feature-icon {
+      width: 44px;
+      height: 44px;
+      border-radius: 10px;
+      background: var(--s3);
+      border: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+      margin-bottom: 16px;
+    }
+
+    .feature-card h3 {
+      font-size: 16px;
+      font-weight: 700;
+      margin-bottom: 8px;
+    }
+
+    .feature-card p {
+      font-size: 13px;
+      color: var(--t2);
+      line-height: 1.7;
+    }
+
+    /* ── Screenshots ── */
+    .screenshots-section {
+      background: var(--s1);
+      border-top: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .screenshots-grid {
+      column-count: 2;
+      column-gap: 20px;
+      margin-top: 60px;
+    }
+
+    .screenshots-grid:hover .screenshot-card:not(:hover) {
+      opacity: 0.5;
+      transform: scale(0.98);
+      filter: grayscale(30%);
+    }
+
+    .screenshot-card--wide {
+      column-span: all;
+    }
+
+    .screenshot-card {
+      break-inside: avoid;
+      margin-bottom: 20px;
+      display: inline-block;
+      width: 100%;
+      border-radius: var(--radius);
+      overflow: hidden;
+      border: 1px solid var(--border);
+      transition: all .4s cubic-bezier(0.16, 1, 0.3, 1);
+      position: relative;
+    }
+
+    .screenshot-card:hover {
+      border-color: var(--ac);
+      transform: translateY(-4px) scale(1.02);
+      box-shadow: 0 24px 60px rgba(0, 0, 0, .6), 0 0 30px var(--ac-glow);
+      z-index: 2;
+    }
+
+    .screenshot-card img {
+      width: 100%;
+      display: block;
+    }
+
+    .screenshot-card .sc-label {
+      background: var(--s2);
+      padding: 10px 14px;
+      font-size: 12px;
+      color: var(--t3);
+      font-family: 'JetBrains Mono', monospace;
+      border-top: 1px solid var(--border);
+    }
+
+    .screenshot-placeholder-sm {
+      width: 100%;
+      aspect-ratio: 16/9;
+      background: linear-gradient(135deg, var(--s2) 0%, var(--s3) 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--t3);
+      font-size: 13px;
+    }
+
+    /* ── AI providers ── */
+    .providers {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-top: 24px;
+    }
+
+    .provider-badge {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--s2);
+      border: 1px solid var(--border);
+      padding: 8px 14px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--t2);
+      transition: all .15s;
+    }
+
+    .provider-badge:hover {
+      border-color: var(--border2);
+      color: var(--t1);
+    }
+
+    .provider-badge .pb-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+    }
+
+    /* ── Download ── */
+    .download-section {
+      text-align: center;
+    }
+
+    .download-cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 16px;
+      margin: 48px auto 0;
+      max-width: 800px;
+    }
+
+    .dl-card {
+      background: var(--s1);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 28px 24px;
+      text-align: center;
+      transition: all .2s;
+      text-decoration: none;
+      color: inherit;
+      display: block;
+    }
+
+    .dl-card:hover {
+      border-color: var(--ac);
+      background: var(--s2);
+      transform: translateY(-3px);
+      box-shadow: 0 16px 40px var(--ac-glow);
+    }
+
+    .dl-os-icon {
+      margin-bottom: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 44px;
+    }
+
+    .dl-os-name {
+      font-size: 16px;
+      font-weight: 700;
+      margin-bottom: 4px;
+    }
+
+    .dl-format {
+      font-size: 12px;
+      color: var(--t3);
+      font-family: 'JetBrains Mono', monospace;
+      margin-bottom: 16px;
+    }
+
+    .dl-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: var(--ac);
+      color: #fff;
+      font-size: 13px;
+      font-weight: 600;
+      padding: 9px 20px;
+      border-radius: 8px;
+      text-decoration: none;
+      transition: all .15s;
+    }
+
+    .dl-card:hover .dl-btn {
+      background: var(--ac2);
+    }
+
+    .version-note {
+      font-size: 12px;
+      color: var(--t3);
+      font-family: 'JetBrains Mono', monospace;
+      margin-top: 20px;
+    }
+
+    /* ── Open source ── */
+    .oss-section {
+      background: var(--s1);
+      border-top: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .oss-inner {
+      display: flex;
+      align-items: center;
+      gap: 60px;
+      flex-wrap: wrap;
+    }
+
+    .oss-text {
+      flex: 1;
+      min-width: 280px;
+    }
+
+    .oss-stats {
+      display: flex;
+      gap: 32px;
+      flex-shrink: 0;
+    }
+
+    .oss-stat {
+      text-align: center;
+    }
+
+    .oss-stat .val {
+      font-size: 36px;
+      font-weight: 900;
+      background: linear-gradient(135deg, var(--ac), #a78bfa);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      display: block;
+    }
+
+    .oss-stat .lbl {
+      font-size: 12px;
+      color: var(--t3);
+      margin-top: 4px;
+    }
+
+    /* ── Footer ── */
+    footer {
+      background: var(--bg);
+      border-top: 1px solid var(--border);
+      padding: 48px 24px 32px;
+    }
+
+    .footer-inner {
+      max-width: 1100px;
+      margin: 0 auto;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 24px;
+    }
+
+    .footer-logo {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 18px;
+      font-weight: 800;
+      color: var(--t1);
+      text-decoration: none;
+    }
+
+    .footer-logo .logo-icon {
+      width: 28px;
+      height: 28px;
+      border-radius: 7px;
+      background: linear-gradient(135deg, var(--ac), #a78bfa);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+    }
+
+    .footer-links {
+      display: flex;
+      gap: 24px;
+      flex-wrap: wrap;
+    }
+
+    .footer-links a {
+      color: var(--t3);
+      text-decoration: none;
+      font-size: 13px;
+      transition: color .15s;
+    }
+
+    .footer-links a:hover {
+      color: var(--t1);
+    }
+
+    .footer-copy {
+      font-size: 12px;
+      color: var(--t3);
+      width: 100%;
+      text-align: center;
+      margin-top: 24px;
+      padding-top: 24px;
+      border-top: 1px solid var(--border);
+    }
+
+    /* ── Divider gradient ── */
+    .divider {
+      height: 1px;
+      background: linear-gradient(90deg, transparent, var(--border2), transparent);
+      margin: 0;
+    }
+
+    /* ── Responsivo ── */
+    @media (max-width: 768px) {
+      nav {
+        padding: 0 20px;
+      }
+
+      .nav-links {
+        display: none;
+      }
+
+      .screenshots-grid {
+        column-count: 1;
+      }
+
+      .screenshot-card--wide {
+        column-span: none;
+      }
+
+      .oss-inner {
+        flex-direction: column;
+      }
+
+      .steps {
+        grid-template-columns: 1fr;
+        gap: 1px;
+      }
+
+      .step:first-child,
+      .step:last-child {
+        border-radius: 0;
+      }
+
+      h1 {
+        letter-spacing: -1px;
+      }
+    }
+
+    /* ── Animações de entrada ── */
+    .fade-up {
+      opacity: 0;
+      transform: translateY(24px);
+      transition: opacity .6s ease, transform .6s ease;
+    }
+
+    .fade-up.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    /* ── KreaKodo Brand Glitch ── */
+    a.link-kreakodo {
+      display: inline-flex;
+      gap: 0.1em;
+      text-decoration: none;
+      transition: all .3s ease;
+      color: var(--ac2);
+      font-weight: bold;
+      align-items: center;
+      vertical-align: middle;
+    }
+
+    a.link-kreakodo:hover {
+      opacity: 0.85;
+    }
+
+    .kb-brand {
+      position: relative;
+      display: flex;
+      font-family: 'JetBrains Mono', monospace;
+      background: transparent;
+      letter-spacing: 0.05em;
+    }
+
+    .kb-brand.d1 {
+      animation: kb-main 1.7s linear infinite;
+    }
+
+    .kb-brand.d2 {
+      animation: kb-main 2.5s linear infinite;
+    }
+
+    .kb-brand::before,
+    .kb-brand::after {
+      content: attr(data-text);
+      position: absolute;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: transparent;
+    }
+
+    .kb-brand::before {
+      clip-path: polygon(0 0, 100% 0, 100% 33%, 0 33%);
+      -webkit-clip-path: polygon(0 0, 100% 0, 100% 33%, 0 33%);
+    }
+
+    .kb-brand.d1::before {
+      animation: kb-top 2s linear infinite;
+    }
+
+    .kb-brand.d2::before {
+      animation: kb-top 3.2s linear infinite;
+    }
+
+    .kb-brand::after {
+      animation: kb-btm 3.5s linear infinite;
+      clip-path: polygon(0 67%, 100% 67%, 100% 100%, 0 100%);
+      -webkit-clip-path: polygon(0 67%, 100% 67%, 100% 100%, 0 100%);
+    }
+
+    @keyframes kb-main {
+
+      2%,
+      64% {
+        transform: translate(0.05em, 0) skew(0deg);
+      }
+
+      4%,
+      60% {
+        transform: translate(-0.025em, 0) skew(0deg);
+      }
+
+      62% {
+        transform: translate(0, 0) skew(5deg);
+      }
+    }
+
+    @keyframes kb-top {
+
+      2%,
+      64% {
+        transform: translate(0.05em, 0em);
+      }
+
+      4%,
+      60% {
+        transform: translate(-0.05em, 0em);
+      }
+
+      62% {
+        transform: translate(0.8em, -0.07em) skew(-13deg);
+      }
+    }
+
+    @keyframes kb-btm {
+
+      2%,
+      64% {
+        transform: translate(-0.02em, 0);
+      }
+
+      4%,
+      60% {
+        transform: translate(-0.02em, 0);
+      }
+
+      62% {
+        transform: translate(-0.6em, 0.1em) skew(21deg);
+      }
+    }
+  </style>
+</head>
+
+<body>
+
+  <!-- NAV -->
+  <nav>
+    <a href="#" class="nav-logo">
+      <div class="logo-icon">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5"
+          stroke-linecap="round" stroke-linejoin="round">
+          <path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z" />
+        </svg>
+      </div>
+      Tasko
+    </a>
+    <div class="nav-links">
+      <a href="#como-funciona">Como funciona</a>
+      <a href="#features">Features</a>
+      <a href="#download">Download</a>
+      <a href="https://github.com/pedropompeu/ImportTrello" target="_blank">GitHub</a>
+    </div>
+    <a href="#download" class="btn-nav">↓ Download grátis</a>
+  </nav>
+
+  <!-- HERO -->
+  <section class="hero">
+    <div class="hero-badge">
+      <span class="dot"></span>
+      Lançamento oficial · Open Source · Gratuito
+    </div>
+
+    <h1>
+      Do texto ao<br />
+      <span>Trello</span> em segundos.
+    </h1>
+
+    <p class="hero-tagline">
+      <strong>Você cria a ideia.</strong> A IA cria as tarefas.
+      <strong>Tasko importa.</strong> Trello alinha.
+    </p>
+
+    <div class="hero-cta">
+      <a href="#download" class="btn-primary">
+        ⚡ Download grátis
+      </a>
+      <a href="https://github.com/pedropompeu/ImportTrello" target="_blank" class="btn-ghost">
+        ★ Ver no GitHub
+      </a>
+    </div>
+    <p class="hero-note">Windows · Linux · macOS · Sem cadastro · Seus dados ficam só com você</p>
+
+    <div class="hero-screenshot fade-up">
+      <div class="screenshot-bar">
+        <div class="dot-red"></div>
+        <div class="dot-yellow"></div>
+        <div class="dot-green"></div>
+        <div class="screenshot-url">Tasko — Trello Smart Importer</div>
+      </div>
+      <img src="assets/screenshot-preview.png" alt="Tasko — Preview de tasks"
+        onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';" />
+      <div class="screenshot-placeholder" style="display:none;">
+        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="var(--border2)" stroke-width="1.5"
+          stroke-linecap="round" stroke-linejoin="round">
+          <path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z" />
+        </svg>
+        <span>Screenshot do App</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- HOW IT WORKS -->
+  <section class="how-section" id="como-funciona">
+    <div class="container">
+      <div class="fade-up" style="text-align:center; margin-bottom: 0;">
+        <span class="section-label">Como funciona</span>
+        <h2 class="section-title">Três passos. Zero esforço.</h2>
+        <p class="section-sub" style="margin: 0 auto;">De uma ideia escrita em texto para um board completo no Trello —
+          sem copiar e colar, sem configurar nada manualmente.</p>
+      </div>
+      <div class="steps fade-up">
+        <div class="step">
+          <div class="step-num">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--ac2)" stroke-width="2"
+              stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+            </svg>
+          </div>
+          <h3>Descreva seu projeto</h3>
+          <p>Escreva em português mesmo. "Preciso de um e-commerce com 3 sprints: setup, frontend e backend." Simples
+            assim.</p>
+        </div>
+        <div class="step">
+          <div class="step-num">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--ac2)" stroke-width="2"
+              stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 8V4H8" />
+              <rect width="16" height="12" x="4" y="8" rx="2" />
+              <path d="M2 14h2M20 14h2M15 13v2M9 13v2" />
+            </svg>
+          </div>
+          <h3>A IA estrutura tudo</h3>
+          <p>GPT-4, Claude ou Gemini transforma seu texto em sprints, tasks com labels, checklists técnicos e datas de
+            entrega.</p>
+        </div>
+        <div class="step">
+          <div class="step-num">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--ac2)" stroke-width="2"
+              stroke-linecap="round" stroke-linejoin="round">
+              <path d="M22 2 11 13" />
+              <path d="m22 2-7 20-4-9-9-4 20-7z" />
+            </svg>
+          </div>
+          <h3>Revise e envie</h3>
+          <p>Edite, reordene por drag-and-drop, ajuste detalhes — e clique em enviar. Cada card vai pro Trello com
+            checklist nativo.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- FEATURES -->
+  <section id="features">
+    <div class="container">
+      <div class="fade-up">
+        <span class="section-label">Features</span>
+        <h2 class="section-title">Tudo que você precisa.<br />Nada que você não precisa.</h2>
+        <p class="section-sub">Construído para devs, PMs e qualquer pessoa que usa o Trello para organizar projetos
+          reais.</p>
+      </div>
+
+      <div class="features-grid fade-up">
+        <div class="feature-card">
+          <div class="feature-icon">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--ac2)" stroke-width="1.8"
+              stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 8V4H8" />
+              <rect width="16" height="12" x="4" y="8" rx="2" />
+              <path d="M2 14h2M20 14h2M15 13v2M9 13v2" />
+            </svg>
+          </div>
+          <h3>Geração com IA</h3>
+          <p>Suporte a OpenAI, Anthropic Claude, Google Gemini e qualquer provider compatível com OpenAI. Use sua
+            própria chave.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--ac2)" stroke-width="1.8"
+              stroke-linecap="round" stroke-linejoin="round">
+              <path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z" />
+              <path d="M14 2v4a2 2 0 0 0 2 2h4" />
+              <path d="M12 18v-6" />
+              <path d="m9 15 3 3 3-3" />
+            </svg>
+          </div>
+          <h3>Importação de arquivos</h3>
+          <p>JSON, CSV e Excel. O parser reconhece automaticamente colunas como título, sprint, checklist e due date.
+          </p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--ac2)" stroke-width="1.8"
+              stroke-linecap="round" stroke-linejoin="round">
+              <rect width="7" height="7" x="3" y="3" rx="1" />
+              <rect width="7" height="7" x="14" y="3" rx="1" />
+              <rect width="7" height="7" x="14" y="14" rx="1" />
+              <rect width="7" height="7" x="3" y="14" rx="1" />
+            </svg>
+          </div>
+          <h3>Templates prontos</h3>
+          <p>Scrum, lançamento de produto, escrita de livro, evento. Comece com estrutura pronta e personalize.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--ac2)" stroke-width="1.8"
+              stroke-linecap="round" stroke-linejoin="round">
+              <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+              <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4Z" />
+            </svg>
+          </div>
+          <h3>Preview e edição completa</h3>
+          <p>Edite título, descrição, tipo, sprint e checklist antes de enviar. Drag-and-drop para reordenar entre
+            sprints.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--ac2)" stroke-width="1.8"
+              stroke-linecap="round" stroke-linejoin="round">
+              <path d="M9 11l3 3L22 4" />
+              <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
+            </svg>
+          </div>
+          <h3>Checklists nativos</h3>
+          <p>Cada item de checklist vira um checkbox real dentro do card no Trello — não só texto na descrição.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--ac2)" stroke-width="1.8"
+              stroke-linecap="round" stroke-linejoin="round">
+              <rect width="18" height="11" x="3" y="11" rx="2" ry="2" />
+              <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+            </svg>
+          </div>
+          <h3>100% local e privado</h3>
+          <p>Banco SQLite no seu computador. API keys criptografadas com AES-256. Seus dados nunca saem da sua máquina.
+          </p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--ac2)" stroke-width="1.8"
+              stroke-linecap="round" stroke-linejoin="round">
+              <rect width="18" height="18" x="3" y="4" rx="2" ry="2" />
+              <line x1="16" x2="16" y1="2" y2="6" />
+              <line x1="8" x2="8" y1="2" y2="6" />
+              <line x1="3" x2="21" y1="10" y2="10" />
+              <path d="M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01M16 18h.01" />
+            </svg>
+          </div>
+          <h3>Due dates e links</h3>
+          <p>Defina datas de entrega e vincule URLs (Figma, GitHub, Notion) diretamente nos cards antes de enviar.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--ac2)" stroke-width="1.8"
+              stroke-linecap="round" stroke-linejoin="round">
+              <path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z" />
+            </svg>
+          </div>
+          <h3>Multi-board e histórico</h3>
+          <p>Gerencie múltiplos boards do Trello. O histórico de projetos fica salvo localmente entre sessões.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--ac2)" stroke-width="1.8"
+              stroke-linecap="round" stroke-linejoin="round">
+              <path
+                d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z" />
+            </svg>
+          </div>
+          <h3>Labels coloridas automáticas</h3>
+          <p>Backend, Frontend, DevOps, Testes — cada tipo de task recebe uma label colorida no Trello automaticamente.
+          </p>
+        </div>
+      </div>
+
+      <div class="fade-up" style="margin-top: 48px;">
+        <p style="font-size: 13px; color: var(--t3); margin-bottom: 16px; font-family: 'JetBrains Mono', monospace;">
+          PROVIDERS DE IA SUPORTADOS</p>
+        <div class="providers">
+          <div class="provider-badge">
+            <div class="pb-dot" style="background:#10a37f"></div> OpenAI GPT-4o
+          </div>
+          <div class="provider-badge">
+            <div class="pb-dot" style="background:#d97706"></div> Anthropic Claude
+          </div>
+          <div class="provider-badge">
+            <div class="pb-dot" style="background:#4285f4"></div> Google Gemini
+          </div>
+          <div class="provider-badge">
+            <div class="pb-dot" style="background:#6b7280"></div> Custom (Ollama, LM Studio)
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- SCREENSHOTS -->
+  <section class="screenshots-section">
+    <div class="container">
+      <div class="fade-up" style="text-align:center;">
+        <span class="section-label">Interface</span>
+        <h2 class="section-title">Veja o Tasko em ação</h2>
+      </div>
+      <div class="screenshots-grid fade-up">
+        <div class="screenshot-card">
+          <img src="assets/screenshot-importer.png" alt="Importador com IA"
+            onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';" />
+          <div class="screenshot-placeholder-sm" style="display:none;">Importador com IA</div>
+          <div class="sc-label">→ Geração de tasks via IA em linguagem natural</div>
+        </div>
+        <div class="screenshot-card">
+          <img src="assets/screenshot-dashboard.png" alt="Dashboard"
+            onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';" />
+          <div class="screenshot-placeholder-sm" style="display:none;">Dashboard</div>
+          <div class="sc-label">→ Dashboard com stats e ações rápidas</div>
+        </div>
+        <div class="screenshot-card screenshot-card--wide">
+          <img src="assets/screenshot-preview.png" alt="Preview de tasks"
+            onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';" />
+          <div class="screenshot-placeholder-sm" style="display:none;">Preview de tasks</div>
+          <div class="sc-label">→ Preview completo com drag-and-drop, edição inline e labels coloridas por tipo</div>
+        </div>
+        <div class="screenshot-card">
+          <img src="assets/screenshot-settings-trello.png" alt="Configurações Trello"
+            onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';" />
+          <div class="screenshot-placeholder-sm" style="display:none;">Configurações Trello</div>
+          <div class="sc-label">→ Conexão com Trello via API Key e Token</div>
+        </div>
+        <div class="screenshot-card">
+          <img src="assets/screenshot-settings-IA.png" alt="Configurações IA"
+            onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';" />
+          <div class="screenshot-placeholder-sm" style="display:none;">Configurações IA</div>
+          <div class="sc-label">→ Multi-provider de IA com API Key própria</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- DOWNLOAD -->
+  <section id="download" class="download-section">
+    <div class="container">
+      <div class="fade-up">
+        <span class="section-label">Download</span>
+        <h2 class="section-title">Gratuito!</h2>
+        <p class="section-sub" style="margin: 0 auto 8px;">Open source, sem assinatura, sem cadastro. Instale e comece
+          em menos de 2 minutos.</p>
+      </div>
+
+      <div class="download-cards fade-up">
+        <a class="dl-card" href="https://github.com/pedropompeu/ImportTrello/releases/latest/download/Tasko-Setup.exe"
+          target="_blank">
+          <span class="dl-os-icon">
+            <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="var(--ac2)" stroke-width="1.5"
+              stroke-linecap="round" stroke-linejoin="round">
+              <rect x="2" y="3" width="20" height="14" rx="2" />
+              <path d="M8 21h8M12 17v4" />
+            </svg>
+          </span>
+          <div class="dl-os-name">Windows</div>
+          <div class="dl-format">.exe installer · x64</div>
+          <span class="dl-btn">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+              stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 17V3" />
+              <path d="m6 11 6 6 6-6" />
+              <path d="M19 21H5" />
+            </svg>
+            Baixar
+          </span>
+        </a>
+        <a class="dl-card" href="https://github.com/pedropompeu/ImportTrello/releases/latest/download/Tasko.AppImage"
+          target="_blank">
+          <span class="dl-os-icon">
+            <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="var(--ac2)" stroke-width="1.5"
+              stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="10" />
+              <path d="M12 8v4l3 3" />
+            </svg>
+          </span>
+          <div class="dl-os-name">Linux</div>
+          <div class="dl-format">.AppImage · x64</div>
+          <span class="dl-btn">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+              stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 17V3" />
+              <path d="m6 11 6 6 6-6" />
+              <path d="M19 21H5" />
+            </svg>
+            Baixar
+          </span>
+        </a>
+        <a class="dl-card" href="https://github.com/pedropompeu/ImportTrello/releases/latest/download/Tasko.dmg"
+          target="_blank">
+          <span class="dl-os-icon">
+            <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="var(--ac2)" stroke-width="1.5"
+              stroke-linecap="round" stroke-linejoin="round">
+              <path
+                d="M12 20.94c1.5 0 2.75-.56 3.68-1.68A7 7 0 0 0 17.5 14c0-2.74-1.28-5-3.5-6-.9-.41-1.87-.59-2.87-.44C9.96 7.78 8.5 9.5 8.5 12c0 .5.07 1 .2 1.47" />
+              <path d="M12 20.94C10.5 20.94 9.25 20.38 8.32 19.26A7 7 0 0 1 6.5 14c0-1.5.37-2.89 1.05-4.06" />
+              <path
+                d="M9 7c.16-1.47.87-2.8 2-3.72C12.15 2.28 13.5 2 15 2c0 1.5-.56 2.75-1.68 3.68A4.97 4.97 0 0 1 9 7z" />
+            </svg>
+          </span>
+          <div class="dl-os-name">macOS</div>
+          <div class="dl-format">.dmg · Intel + Apple Silicon</div>
+          <span class="dl-btn">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+              stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 17V3" />
+              <path d="m6 11 6 6 6-6" />
+              <path d="M19 21H5" />
+            </svg>
+            Baixar
+          </span>
+        </a>
+      </div>
+
+      <p class="version-note fade-up" style="margin-top: 24px;">
+        Versão atual: v1.0.0 ·
+        <a href="https://github.com/pedropompeu/ImportTrello/releases" target="_blank"
+          style="color: var(--ac2); text-decoration: none;">Ver todas as versões</a>
+      </p>
+
+      <div class="fade-up"
+        style="margin-top: 48px; padding: 24px; background: var(--s1); border: 1px solid var(--border); border-radius: var(--radius); max-width: 600px; margin-left: auto; margin-right: auto; text-align: left;">
+        <p style="font-size: 13px; color: var(--t3); font-family: 'JetBrains Mono', monospace; margin-bottom: 12px;">
+          INSTALAÇÃO RÁPIDA — LINUX</p>
+        <code style="font-family: 'JetBrains Mono', monospace; font-size: 13px; color: var(--ac2);">
+        chmod +x Tasko-1.0.0.AppImage<br/>
+        ./Tasko-1.0.0.AppImage
+      </code>
+      </div>
+    </div>
+  </section>
+
+  <!-- OPEN SOURCE -->
+  <section class="oss-section">
+    <div class="container">
+      <div class="oss-inner fade-up">
+        <div class="oss-text">
+          <span class="section-label">Open Source</span>
+          <h2 class="section-title" style="font-size: 32px;">Construído aberto.<br />Para todos.</h2>
+          <p style="color: var(--t2); font-size: 15px; line-height: 1.7; margin: 16px 0 24px;">
+            Tasko é MIT. Sem telemetria, sem anúncios, sem plano pago escondido.
+            Contribua, fork, customize — o código é seu.<br/><br/>
+            Coopere com o time e nos ajude a evoluir, faça uma doação para manter o projeto atualizado!
+          </p>
+          <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+            <a href="https://github.com/pedropompeu/ImportTrello" target="_blank" class="btn-ghost"
+              style="display: inline-flex;">
+              ★ Ver código no GitHub
+            </a>
+            <a href="https://nubank.com.br/cobrar/3jaf7/69efff98-abc8-4f73-b6ce-836b5acafb95" target="_blank" class="btn-primary"
+              style="display: inline-flex; align-items: center; gap: 8px; background: linear-gradient(135deg, #ff4b4b, #ff7b7b); box-shadow: 0 0 20px rgba(255, 75, 75, 0.3);">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
+              Fazer uma doação
+            </a>
+          </div>
+        </div>
+        <div class="oss-stats">
+          <div class="oss-stat">
+            <span class="val">MIT</span>
+            <div class="lbl">Licença</div>
+          </div>
+          <div class="oss-stat">
+            <span class="val">3</span>
+            <div class="lbl">Plataformas</div>
+          </div>
+          <div class="oss-stat">
+            <span class="val">4</span>
+            <div class="lbl">Providers de IA</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- FOOTER -->
+  <footer>
+    <div class="footer-inner">
+      <a href="#" class="footer-logo">
+        <div class="logo-icon">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5"
+            stroke-linecap="round" stroke-linejoin="round">
+            <path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z" />
+          </svg>
+        </div>
+        Tasko
+      </a>
+      <div class="footer-links">
+        <a href="#como-funciona">Como funciona</a>
+        <a href="#features">Features</a>
+        <a href="#download">Download</a>
+        <a href="https://github.com/pedropompeu/ImportTrello" target="_blank">GitHub</a>
+        <a href="https://github.com/pedropompeu/ImportTrello/issues" target="_blank">Reportar bug</a>
+      </div>
+    </div>
+    <div class="footer-inner">
+      <p class="footer-copy">
+        © 2026 Tasko<sup>®</sup>· Open Source · MIT License ·
+        Não afiliado à Atlassian ou Trello ·
+        Feito pela equipe <a href="https://github.com/KreaKodo/brand" target="_blank" class="link-kreakodo"
+          style="font-size: 1em;">KreaKodo</a>
+      </p>
+      <div
+        style="width: 100%; text-align: center; margin-top: 12px; font-size: 16px; display: flex; align-items: center; justify-content: center; gap: 6px;">
+        <span style="color:var(--t3);">Um projeto</span>
+        <a href="https://github.com/KreaKodo/brand" target="_blank" class="link-kreakodo" style="font-size: 1.2em;">
+          <span style="color:var(--t3);font-weight:normal;margin-right:4px;">By</span>
+          <span class="kb-brand d1" data-text="Krea">Krea</span><span class="kb-brand d2" data-text="Kodo!">Kodo!</span>
+        </a>
+      </div>
+    </div>
+  </footer>
+
+  <script>
+    // Animação de entrada ao rolar
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach(e => {
+        if (e.isIntersecting) {
+          e.target.classList.add('visible')
+          observer.unobserve(e.target)
+        }
+      })
+    }, { threshold: 0.1 })
+
+    document.querySelectorAll('.fade-up').forEach(el => observer.observe(el))
+  </script>
+
+</body>
+
+</html>
