@@ -40,6 +40,7 @@
     "appId": "com.trelloimporter.app",
     "productName": "Trello Smart Importer",
     "copyright": "Copyright © 2025",
+    "publish": null,
     "directories": {
       "output": "dist-electron",
       "buildResources": "build"
@@ -66,7 +67,8 @@
         }
       ],
       "icon": "build/icon.ico",
-      "requestedExecutionLevel": "asInvoker"
+      "requestedExecutionLevel": "asInvoker",
+      "publish": null
     },
     "nsis": {
       "oneClick": false,
@@ -103,7 +105,8 @@
       "icon": "build/icons",
       "category": "Utility",
       "description": "AI-powered Trello task importer",
-      "maintainer": "Pedro Pompeu <pedrolpompeu@gmail.com>"
+      "maintainer": "Pedro Pompeu <pedrolpompeu@gmail.com>",
+      "publish": null
     },
     "mac": {
       "target": [
@@ -128,7 +131,8 @@
       "hardenedRuntime": true,
       "gatekeeperAssess": false,
       "entitlements": "build/entitlements.mac.plist",
-      "entitlementsInherit": "build/entitlements.mac.plist"
+      "entitlementsInherit": "build/entitlements.mac.plist",
+      "publish": null
     },
     "dmg": {
       "contents": [
